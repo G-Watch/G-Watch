@@ -1,0 +1,18 @@
+[submodule "third_parties/pybind11"]
+	path = third_parties/pybind11
+	url = https://github.com/pybind/pybind11.git
+[submodule "third_parties/json"]
+	path = third_parties/json
+	url = https://github.com/nlohmann/json.git
+[submodule "third_parties/yaml-cpp"]
+	path = third_parties/yaml-cpp
+	url = https://github.com/jbeder/yaml-cpp.git
+[submodule "third_parties/sqlite"]
+	path = third_parties/sqlite
+	url = https://github.com/sqlite/sqlite.git
+[submodule "third_parties/pybind11_json"]
+	path = third_parties/pybind11_json
+	url = https://github.com/pybind/pybind11_json.git
+[submodule "third_parties/Obfuscate"]
+	path = third_parties/Obfuscate
+	url = https://github.com/adamyaxley/Obfuscate.git

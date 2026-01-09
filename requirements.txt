@@ -1,0 +1,9 @@
+PyYAML
+tqdm
+packaging
+loguru
+ninja==1.11.1.3
+torch
+torchvision
+torchaudio
+

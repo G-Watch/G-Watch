@@ -1,0 +1,6 @@
+include README.md
+include VERSION
+include scripts/get_cuda_version.sh
+include gwatch/libs/*.so
+include gwatch/bin/*
+include gwatch/*.so
