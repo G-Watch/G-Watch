@@ -5,16 +5,16 @@
 </div>
 
 ***G-Watch*** is a toolbox for GPU profiling and program analysis.
-It features rich **Profiling** capabilities on both NVIDIA and AMD GPUs,
-including Performance Monitor (PM) Sampling, Program Counter (PC) Sampling, Range Profiling, and Intra-kernel Tracing.
-Additionally, G-Watch offers **Program Analysis** tools for inspecting compiler-generated GPU binaries,
+It features rich **Profiling** capabilities on both NVIDIA and AMD GPUs.
+Additionally,
+G-Watch offers **Program Analysis** tools for inspecting compiler-generated GPU binaries,
 facilitating secondary development tasks such as register analysis and binary instrumentation.
 
 
 ## Features
 
 We would release guidance for using G-Watch soon,
-currently please take refer to [examples](./examples)
+currently please take refer to [examples](https://github.com/G-Watch/G-Watch/tree/main/examples)
 
 
 ## Installation
