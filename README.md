@@ -1,7 +1,7 @@
 # G-Watch
 
 <div align="center" style="display: flex; margin:10px;">
-    <img src="./docs/logo.jpg" style="width: 350px; margin: 0px; padding: 0px;" />
+    <img src="https://github.com/G-Watch/G-Watch/raw/main/docs/logo.jpg" style="width: 350px; margin: 0px; padding: 0px;" />
 </div>
 
 ***G-Watch*** is a toolbox for GPU profiling and program analysis.
@@ -13,7 +13,8 @@ facilitating secondary development tasks such as register analysis and binary in
 
 ## Features
 
-Please check [examples](./examples)
+We would release guidance for using G-Watch soon,
+currently please take refer to [examples](./examples)
 
 
 ## Installation
