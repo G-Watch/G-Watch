@@ -6,8 +6,8 @@
 
 #define GWATCH_PRINT_ERROR         1
 #define GWATCH_PRINT_WARN          1
-#define GWATCH_PRINT_LOG           1
-#define GWATCH_PRINT_DEBUG         1
+#define GWATCH_PRINT_LOG           0
+#define GWATCH_PRINT_DEBUG         0
 #define GWATCH_PRINT_WITH_COLOR    0
 
 #define _GWATCH_PRINT_POSITION(stream)\

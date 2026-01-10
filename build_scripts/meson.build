@@ -46,6 +46,9 @@ if ld_args.length() == 0
     assert(false, 'no ld flags were set')
 endif
 
+# add rpath
+ld_args += ['-Wl,-rpath,$ORIGIN']
+
 c_args += run_command('sh', '-c', 'echo $GWATCH_CFLAGS').stdout().strip().split(',')
 if c_args.length() == 0
     assert(false, 'no c flags were set')

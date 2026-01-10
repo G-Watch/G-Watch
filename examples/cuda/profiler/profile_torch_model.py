@@ -63,7 +63,6 @@ model = LargeNN(in_size=in_size, embedding_size=embedding_size, out_size=out_siz
 criterion = nn.MSELoss()
 optimizer = optim.SGD(model.parameters(), lr=learning_rate)
 
-
 Xs = []
 Ys = []
 for i in range(int(num_samples/batch_size)):

@@ -4,3 +4,4 @@ include scripts/get_cuda_version.sh
 include gwatch/libs/*.so
 include gwatch/bin/*
 include gwatch/*.so
+recursive-include gwatch/assets *

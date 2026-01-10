@@ -52,15 +52,11 @@ class RangeProfiler:
         if self.cupti_profile_range_mode == GW_CUPTI_RANGE_MODE_USER:
             self.profiler.RangeProfile_pop_range()
         last_pass = self.profiler.RangeProfile_end_pass()
-        if not last_pass:
-            print(f"warn: multipass profiling when multipass is not allowed")
-        else:
-            print(f"last pass: {last_pass}")
         self.profiler.RangeProfile_flush_data()
         self.profiler.RangeProfile_disable_profiling()
         self.metrics = self.profiler.RangeProfile_get_metrics()
         self.profiler.RangeProfile_destroy_session()
-        
+
 
 class PmSampler:
     def __init__(self, profiler: 'Profiler',

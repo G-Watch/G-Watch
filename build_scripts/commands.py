@@ -106,24 +106,38 @@ class BuildCommand(_build):
         
         # distribute artifacts
         gwatch_pkg_dir = os.path.join(root_dir, 'gwatch')
-        libs_dir = os.path.join(gwatch_pkg_dir, 'libs')
+        libs_dir = gwatch_pkg_dir
         bin_dir = os.path.join(gwatch_pkg_dir, 'bin')
         
-        if not os.path.exists(libs_dir):
-            os.makedirs(libs_dir)
+        # copy assets to package root
+        assets_src = os.path.join(root_dir, 'assets')
+        assets_dst = os.path.join(gwatch_pkg_dir, 'assets')
+        if os.path.exists(assets_src):
+            if os.path.exists(assets_dst):
+                 shutil.rmtree(assets_dst)
+            shutil.copytree(assets_src, assets_dst)
+        
         if not os.path.exists(bin_dir):
             os.makedirs(bin_dir)
 
         # add third-party libs
         sqlite_lib = os.path.join(root_dir, 'third_parties/sqlite/build/libsqlite3.so')
         if os.path.exists(sqlite_lib):
-            shutil.copy(sqlite_lib, libs_dir)
+            dst = os.path.join(libs_dir, os.path.basename(sqlite_lib))
+            shutil.copy(sqlite_lib, dst)
+            _, stderr, ok = execute_command(cmd=["patchelf", "--set-rpath", "$ORIGIN", dst], title=f"patching rpath for {os.path.basename(dst)}")
+            if not ok:
+                print(f"WARNING: Failed to patch RPATH for {dst}: {stderr}")
 
         # add dark lib
         if "dark" in self.targets:
             dark_lib = os.path.join(root_dir, 'src/dark/libgwatch_dark.so')
             if os.path.exists(dark_lib):
-                shutil.copy(dark_lib, libs_dir)
+                dst = os.path.join(libs_dir, os.path.basename(dark_lib))
+                shutil.copy(dark_lib, dst)
+                _, stderr, ok = execute_command(cmd=["patchelf", "--set-rpath", "$ORIGIN", dst], title=f"patching rpath for {os.path.basename(dst)}")
+                if not ok:
+                    print(f"WARNING: Failed to patch RPATH for {dst}: {stderr}")
 
         for result in self.build_results:
             if not result or not isinstance(result, Tuple) or len(result) != 3:
@@ -138,12 +152,18 @@ class BuildCommand(_build):
                 # pybind libs go to package root
                 dst = os.path.join(gwatch_pkg_dir, filename)
                 shutil.copyfile(src_path, dst)
+                _, stderr, ok = execute_command(cmd=["patchelf", "--set-rpath", "$ORIGIN", dst], title=f"patching rpath for {filename}")
+                if not ok:
+                    print(f"WARNING: Failed to patch RPATH for {dst}: {stderr}")
             elif type_tag == 'lib':
                 # shared libs go to gwatch/libs
                 dst = os.path.join(libs_dir, filename)
                 shutil.copyfile(src_path, dst)
                 # strip shared libs
                 execute_command(cmd=["strip", "--strip-unneeded", dst], title=f"stripping {filename}")
+                _, stderr, ok = execute_command(cmd=["patchelf", "--set-rpath", "$ORIGIN", dst], title=f"patching rpath for {filename}")
+                if not ok:
+                    print(f"WARNING: Failed to patch RPATH for {dst}: {stderr}")
             elif type_tag == 'exe':
                 # executables go to gwatch/bin
                 dst = os.path.join(bin_dir, filename)
@@ -153,6 +173,8 @@ class BuildCommand(_build):
                 # make executable
                 st = os.stat(dst)
                 os.chmod(dst, st.st_mode | stat.S_IEXEC)
+
+        super().run()
 
 
 # command for clean built G-Watch & gTrace
@@ -187,10 +209,12 @@ class CleanCommand(Command):
             os.remove(so_file)
         
         # delete libs and bin in gwatch
-        if os.path.exists('gwatch/libs'):
-            shutil.rmtree('gwatch/libs')
+        # if os.path.exists('gwatch/libs'):
+        #     shutil.rmtree('gwatch/libs')
         if os.path.exists('gwatch/bin'):
             shutil.rmtree('gwatch/bin')
+        if os.path.exists('gwatch/assets'):
+            shutil.rmtree('gwatch/assets')
 
         # delete all gtrace build
         try:
