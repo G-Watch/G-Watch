@@ -31,7 +31,7 @@ class LargeNN(nn.Module):
         self.gw_profiler = self.gw_profile_context.create_profiler(
             device_id,
             [
-                "dram__bytes_read.sum.per_second"
+                "sm__warps_active.avg.pct_of_peak_sustained_active"
             ]
         )
 

@@ -24,7 +24,14 @@ currently please take refer to [examples](https://github.com/G-Watch/G-Watch/tre
 You can install G-Watch directly from PyPI:
 
 ```bash
-pip install gwatch
+# prerequisites for gwatch
+apt-get update
+apt-get install -y  python3 python3-pip libelf-dev protobuf-compiler libwebsockets-dev libnuma-dev
+```
+
+``` bash
+# install from PyPI source
+pip install gwatch==0.0.2
 ```
 
 ### Install from source
