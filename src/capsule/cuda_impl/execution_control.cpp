@@ -80,18 +80,10 @@ gw_retval_t GWCapsule::CUDA_trace_single_kernel(
             { "target", function_name },
             { "type", _trace_type }
         };
-        GW_IF_FAILED(
-            this->send_to_scheduler(_capsule_message_sql),
-            _retval,
-            {
-                GW_WARN_C(
-                    "failed to send trace task (SQL) to scheduler: trace_global_id(%s), error(%s)",
-                    _trace_global_id.c_str(), gw_retval_str(_retval)
-                );
-                goto _exit;
-            }
-        );
-        GW_DEBUG_C("send trace task (SQL) to scheduler: trace_global_id(%s)", _trace_global_id.c_str());
+        _retval = this->send_to_scheduler(_capsule_message_sql);
+        if(_retval == GW_SUCCESS){
+            GW_DEBUG("sent trace task (SQL) to scheduler: trace_global_id(%s)", _trace_global_id.c_str());
+        }
 
         // record child trace id to SQL database
         for(auto& _child_trace_global_id : _list_child_trace_global_id){
@@ -100,19 +92,11 @@ gw_retval_t GWCapsule::CUDA_trace_single_kernel(
                 { "global_id", _trace_global_id },
                 { "child_global_id", _child_trace_global_id }
             };
-            GW_IF_FAILED(
-                this->send_to_scheduler(_capsule_message_sql),
-                _retval,
-                {
-                    GW_WARN_C(
-                        "failed to send parent-child trace task relationship (SQL) to scheduler: trace_global_id(%s), error(%s)",
-                        _trace_global_id.c_str(), gw_retval_str(_retval)
-                    );
-                    goto _exit;
-                }
-            );
+            _retval = this->send_to_scheduler(_capsule_message_sql);
+            if(_retval == GW_SUCCESS){
+                GW_DEBUG("sent parent-child trace task relationship (SQL) to scheduler: trace_global_id(%s)", _trace_global_id.c_str());
+            }
         }
-        GW_DEBUG_C("send trace task (SQL) to scheduler: trace_global_id(%s)", _trace_global_id.c_str());
 
         // write trace result to kv database
         GW_CHECK_POINTER(_capsule_message_kv = new GWInternalMessage_Capsule());
@@ -124,20 +108,12 @@ gw_retval_t GWCapsule::CUDA_trace_single_kernel(
         _capsule_message_kv->type_id = GW_MESSAGE_TYPEID_COMMON_KV_WRITE_DB;
         _kv_write_payload->uri = std::format("/trace/{}", _trace_global_id);
         _kv_write_payload->write_payload = _trace_task_serialize;
-        GW_IF_FAILED(
-            this->send_to_scheduler(_capsule_message_kv),
-            _retval,
-            {
-                GW_WARN_C(
-                    "failed to send trace task (KV) to scheduler: trace_global_id(%s), error(%s)",
-                    _trace_global_id.c_str(), gw_retval_str(_retval)
-                );
-                goto _exit;
-            }
-        );
-        GW_DEBUG_C("send trace task (KV) to scheduler: trace_global_id(%s)", _trace_global_id.c_str());
+        _retval = this->send_to_scheduler(_capsule_message_kv);
+        if(_retval == GW_SUCCESS){
+            GW_DEBUG("sent trace task (KV) to scheduler: trace_global_id(%s)", _trace_global_id.c_str());
+        }
 
-    _exit:
+     exit:
         if(_capsule_message_sql != nullptr)
             delete _capsule_message_sql;
         if(_capsule_message_kv != nullptr)

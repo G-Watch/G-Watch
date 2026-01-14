@@ -341,14 +341,10 @@ void GWProfileContext::__heartbeat_func(){
     static constexpr int64_t GW_PROFILER_HEARTBEAT_INTERVAL = 5;
 
     while(likely(!this->_is_daemon_stop)){
-        GW_IF_FAILED(
-            this->send_to_scheduler(&message),
-            retval,
-            {
-                GW_WARN_C("failed to send heartbeat message to scheduler: %s", gw_retval_str(retval));
-                break;
-            }
-        );
+        retval = this->send_to_scheduler(&message);
+        if(retval == GW_FAILED_NOT_READY){
+            break;
+        }
         std::this_thread::sleep_for(std::chrono::seconds(GW_PROFILER_HEARTBEAT_INTERVAL));
     }
     GW_DEBUG_C("heartbeat thread stopped");
@@ -357,9 +353,13 @@ void GWProfileContext::__heartbeat_func(){
 
 gw_retval_t GWProfileContext::send_to_scheduler(GWInternalMessage_Profiler *message){
     gw_retval_t retval = GW_SUCCESS;
+    static bool has_warn_websocket_not_ready = false;
 
     if(this->_ws_intance == nullptr){
-        GW_WARN_C("failed to send message to scheduler, websocket not ready");
+        if(unlikely(!has_warn_websocket_not_ready)){
+            GW_WARN_C("websocket not ready, turn off sending message to scheduler");
+            has_warn_websocket_not_ready = true;
+        }
         retval = GW_FAILED_NOT_READY;
         goto exit;
     }
@@ -447,13 +447,10 @@ void GWProfileContext::__process_SET_METRICS(GWInternalMessage_Profiler *message
         payload->success = true;
 
     // send back the response of SET_METRICS request
-    GW_IF_FAILED(
-        this->send_to_scheduler(message),
-        tmp_retval,
-        {
-            GW_WARN_C("failed to send back the response of SET_METRICS request");
-        }
-    );
+    tmp_retval = this->send_to_scheduler(message);
+    if(tmp_retval == GW_SUCCESS){
+        GW_DEBUG("sent back the response of SET_METRICS request");
+    }
 }
 
 

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# G-Watch CLI wrapper script
+
+# Ensure we run with the python interpreter available in the environment
+# This allows 'gwatch' to work in virtual environments
+exec python -m gwatch.cli "$@"

@@ -1,3 +1,4 @@
+import gwatch
 import gwatch.libpygwatch as pygwatch
 import json
 from typing import Dict, List, Any
@@ -9,9 +10,10 @@ GW_CUPTI_RANGE_MODE_USER = 1
 GW_CUPTI_REPLAY_MODE_KERNEL = 0
 GW_CUPTI_REPLAY_MODE_USER = 1
 
+
 class RangeProfiler:
     def __init__(self, profiler: 'Profiler',
-        range_name: str = "UserRange",
+        range_name: str = "default profile range",
         max_launches_per_pass: int = 512,
         max_ranges_per_pass: int = 64,
         cupti_profile_range_mode: int = GW_CUPTI_RANGE_MODE_USER,
@@ -31,31 +33,39 @@ class RangeProfiler:
         self.cupti_profile_target_nesting_levels = cupti_profile_target_nesting_levels
         self.metrics = None
 
+
     def __enter__(self):
-        self.profiler.reset_counter_data()
-        self.profiler.RangeProfile_start_session(
-            max_launches_per_pass=self.max_launches_per_pass,
-            max_ranges_per_pass=self.max_ranges_per_pass,
-            cupti_profile_range_mode=self.cupti_profile_range_mode,
-            cupti_profile_reply_mode=self.cupti_profile_reply_mode,
-            cupti_profile_min_nesting_level=self.cupti_profile_min_nesting_level,
-            cupti_profile_num_nesting_levels=self.cupti_profile_num_nesting_levels,
-            cupti_profile_target_nesting_levels=self.cupti_profile_target_nesting_levels
-        )
-        self.profiler.RangeProfile_enable_profiling()
-        self.profiler.RangeProfile_begin_pass()
-        if self.cupti_profile_range_mode == GW_CUPTI_RANGE_MODE_USER:
-            self.profiler.RangeProfile_push_range(self.range_name)
+        if gwatch._is_capsule_hijacked():
+            self.profiler.reset_counter_data()
+            self.profiler.RangeProfile_start_session(
+                max_launches_per_pass=self.max_launches_per_pass,
+                max_ranges_per_pass=self.max_ranges_per_pass,
+                cupti_profile_range_mode=self.cupti_profile_range_mode,
+                cupti_profile_reply_mode=self.cupti_profile_reply_mode,
+                cupti_profile_min_nesting_level=self.cupti_profile_min_nesting_level,
+                cupti_profile_num_nesting_levels=self.cupti_profile_num_nesting_levels,
+                cupti_profile_target_nesting_levels=self.cupti_profile_target_nesting_levels
+            )
+            self.profiler.RangeProfile_enable_profiling()
+            self.profiler.RangeProfile_begin_pass()
+            if self.cupti_profile_range_mode == GW_CUPTI_RANGE_MODE_USER:
+                self.profiler.RangeProfile_push_range(self.range_name)
+        else:
+            pass
         return self
 
+
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.cupti_profile_range_mode == GW_CUPTI_RANGE_MODE_USER:
-            self.profiler.RangeProfile_pop_range()
-        last_pass = self.profiler.RangeProfile_end_pass()
-        self.profiler.RangeProfile_flush_data()
-        self.profiler.RangeProfile_disable_profiling()
-        self.metrics = self.profiler.RangeProfile_get_metrics()
-        self.profiler.RangeProfile_destroy_session()
+        if gwatch._is_capsule_hijacked():
+            if self.cupti_profile_range_mode == GW_CUPTI_RANGE_MODE_USER:
+                self.profiler.RangeProfile_pop_range()
+            last_pass = self.profiler.RangeProfile_end_pass()
+            self.profiler.RangeProfile_flush_data()
+            self.profiler.RangeProfile_disable_profiling()
+            self.metrics = self.profiler.RangeProfile_get_metrics()
+            self.profiler.RangeProfile_destroy_session()
+        else:
+            pass
 
 
 class PmSampler:
@@ -70,6 +80,7 @@ class PmSampler:
         self.max_samples = max_samples
         self.metrics = None
 
+
     def __enter__(self):
         self.profiler.PmSampling_set_config(
             self.hw_buf_size,
@@ -79,6 +90,7 @@ class PmSampler:
         self.profiler.PmSampling_enable_profiling()
         self.profiler.PmSampling_start_profiling()
         return self
+
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.profiler.PmSampling_stop_profiling()
@@ -92,10 +104,12 @@ class PcSampler:
         self.kernel_def = kernel_def
         self.metrics = None
 
+
     def __enter__(self):
         self.profiler.PcSampling_enable_profiling(self.kernel_def)
         self.profiler.PcSampling_start_profiling()
         return self
+
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.profiler.PcSampling_stop_profiling()
@@ -107,10 +121,10 @@ class Profiler:
     def __init__(self, gw_instance: pygwatch.Profiler):
         self._gw_instance = gw_instance
 
-    # ================== Easy-to-use APIs ==================
+    # ================== Context manager based APIs ==================
     def RangeProfile(
         self,
-        range_name: str = "UserRange",
+        range_name: str = "default profile range",
         max_launches_per_pass: int = 512,
         max_ranges_per_pass: int = 64,
         cupti_profile_range_mode: int = GW_CUPTI_RANGE_MODE_USER,
@@ -119,6 +133,20 @@ class Profiler:
         cupti_profile_num_nesting_levels: int = 1,
         cupti_profile_target_nesting_levels: int = 1
     ) -> RangeProfiler:
+        """
+        Create a range profiler context manager with the given name.
+
+        Args:
+            range_name: The name of the range to profile.
+            max_launches_per_pass: The maximum number of launches per pass.
+            max_ranges_per_pass: The maximum number of ranges per pass.
+            cupti_profile_range_mode: The mode of the range profiling.
+            cupti_profile_reply_mode: The mode of the range profiling reply.
+            cupti_profile_min_nesting_level: The minimum nesting level.
+            cupti_profile_num_nesting_levels: The number of nesting levels.
+            cupti_profile_target_nesting_levels: The target nesting levels.
+        """
+
         return RangeProfiler(
             self,
             range_name=range_name,
@@ -131,12 +159,24 @@ class Profiler:
             cupti_profile_target_nesting_levels=cupti_profile_target_nesting_levels
         )
 
+
     def PmSampling(
         self,
         hw_buf_size: int = 1024 * 1024,
         sampling_interval: int = 0,
         max_samples: int = 100000
     ) -> PmSampler:
+        """
+        Create a Performance Monitoring (PM) sampling context manager.
+        
+        Args:
+            hw_buf_size: The size of the hardware buffer.
+            sampling_interval: The sampling interval.
+            max_samples: The maximum number of samples.
+        Returns:
+            A PM sampling context manager object.
+        """
+
         return PmSampler(
             self,
             hw_buf_size=hw_buf_size,
@@ -144,11 +184,82 @@ class Profiler:
             max_samples=max_samples
         )
 
+
     def PcSampling(self, kernel_def: Any) -> PcSampler:
+        """
+        Create a Program Counter (PC) sampling context manager.
+
+        Args:
+            kernel_def: The kernel definition to profile.
+        Returns:
+            A Program Counter (PC) sampling context manager object.
+        """
+
         return PcSampler(self, kernel_def)
+    # ================== Context manager based APIs ==================
+
+
     # ================== Easy-to-use APIs ==================
+    def start_range_profile(
+        self,
+        range_name: str = "default profile range",
+        max_launches_per_pass: int = 512,
+        max_ranges_per_pass: int = 64,
+        cupti_profile_range_mode: int = GW_CUPTI_RANGE_MODE_USER,
+        cupti_profile_reply_mode: int = GW_CUPTI_REPLAY_MODE_USER,
+        cupti_profile_min_nesting_level: int = 1,
+        cupti_profile_num_nesting_levels: int = 1,
+        cupti_profile_target_nesting_levels: int = 1
+    ):
+        """
+        Start a range profiling context.
+        """
+    
+        self._range_profile_config = {
+            "range_name": range_name,
+            "cupti_profile_range_mode": cupti_profile_range_mode
+        }
+
+        self.reset_counter_data()
+        self.RangeProfile_start_session(
+            max_launches_per_pass=max_launches_per_pass,
+            max_ranges_per_pass=max_ranges_per_pass,
+            cupti_profile_range_mode=cupti_profile_range_mode,
+            cupti_profile_reply_mode=cupti_profile_reply_mode,
+            cupti_profile_min_nesting_level=cupti_profile_min_nesting_level,
+            cupti_profile_num_nesting_levels=cupti_profile_num_nesting_levels,
+            cupti_profile_target_nesting_levels=cupti_profile_target_nesting_levels
+        )
+        self.RangeProfile_enable_profiling()
+        self.RangeProfile_begin_pass()
+        if cupti_profile_range_mode == GW_CUPTI_RANGE_MODE_USER:
+            self.RangeProfile_push_range(range_name)
 
 
+    def stop_range_profile(self) -> Dict[str, Dict[str, float]]:
+        """
+        Stop the range profiling context and return metrics.
+        """
+    
+        if not hasattr(self, '_range_profile_config'):
+             raise RuntimeError("Range profiling was not started. Please call start_range_profile() first.")
+        
+        config = self._range_profile_config
+        
+        if config["cupti_profile_range_mode"] == GW_CUPTI_RANGE_MODE_USER:
+            self.RangeProfile_pop_range()
+            
+        self.RangeProfile_end_pass()
+        self.RangeProfile_flush_data()
+        self.RangeProfile_disable_profiling()
+        metrics = self.RangeProfile_get_metrics()
+        self.RangeProfile_destroy_session()
+        
+        del self._range_profile_config
+        return metrics
+
+
+    # ================== Low-level APIs ==================
     # Range Profile APIs
     def RangeProfile_start_session(
         self, 
@@ -257,6 +368,8 @@ class Profiler:
     # Common APIs
     def reset_counter_data(self):
         self._gw_instance.reset_counter_data()
+    # ================== Low-level APIs ==================
+
 
 __all__ = [
     "Profiler",

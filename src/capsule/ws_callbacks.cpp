@@ -68,15 +68,11 @@ void GWCapsule::__process_capsule_resp_REGISTER(GWInternalMessage_Capsule *messa
     }
 
     // send back registration response
-    GW_IF_FAILED(
-        this->send_to_scheduler(message),
-        tmp_retval,
-        {
-            GW_WARN_C("failed to send registration response");
-            goto exit;
-        }
-    );
+    tmp_retval = this->send_to_scheduler(message);
+    if(tmp_retval == GW_SUCCESS){
+        GW_DEBUG("sent registration response to scheduler");
+    }
 
-exit:
+ exit:
     ;
 }

@@ -43,5 +43,6 @@ setup(
             'plat_name': 'manylinux2014_x86_64'
         }
     },
+    scripts=['scripts/gwatch'],
     data_files=[]   # this field will be redispatched in install command
 )

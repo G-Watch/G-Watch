@@ -96,21 +96,21 @@ GWCapsule::GWCapsule()
         GW_DEBUG_C("reused log file directory: dir(%s)", this->_log_file_dir.c_str());
     }
 
-    if(do_redirect){
-        fd = open(this->_log_file_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
-        if(fd < 0){
-            GW_WARN_C(
-                "failed to open log file: file_path(%s), err(%s)",
-                this->_log_file_path.c_str(),
-                strerror(errno)
-            );
-        } else {
-            GW_DEBUG_C("redirect stdout and stderr to log file: file_path(%s)", this->_log_file_path.c_str());
-            dup2(fd, STDOUT_FILENO);
-            dup2(fd, STDERR_FILENO);
-            close(fd);
-        }
-    }
+    // if(do_redirect){
+    //     fd = open(this->_log_file_path.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    //     if(fd < 0){
+    //         GW_WARN_C(
+    //             "failed to open log file: file_path(%s), err(%s)",
+    //             this->_log_file_path.c_str(),
+    //             strerror(errno)
+    //         );
+    //     } else {
+    //         GW_DEBUG_C("redirect stdout and stderr to log file: file_path(%s)", this->_log_file_path.c_str());
+    //         dup2(fd, STDOUT_FILENO);
+    //         dup2(fd, STDERR_FILENO);
+    //         close(fd);
+    //     }
+    // }
 
     // initailize profiler
     #if GW_BACKEND_CUDA
@@ -377,18 +377,10 @@ void GWCapsule::__event_report_func(GWCapsule* _this, GWEventTrace *event_trace,
             payload->payload = event->to_json();
 
             // send to scheduler
-            GW_IF_FAILED(
-                _this->send_to_scheduler(capsule_message),
-                retval,
-                {
-                    GW_WARN(
-                        "failed to write_kvdb for event report: %s",
-                        capsule_message->serialize().c_str()
-                    );
-                    goto _exit;
-                }
-            );
-            GW_DEBUG("reported event: linux_thread_id(%lu), event_id(%lu)", linux_thread_id, event->id);
+            retval = _this->send_to_scheduler(capsule_message);
+            if(retval == GW_SUCCESS){
+                GW_DEBUG("reported event: linux_thread_id(%lu), event_id(%lu)", linux_thread_id, event->id);
+            }
 
         _exit:
             // should be save to delete the event here, as
@@ -409,9 +401,13 @@ void GWCapsule::__event_report_func(GWCapsule* _this, GWEventTrace *event_trace,
 
 gw_retval_t GWCapsule::send_to_scheduler(GWInternalMessage_Capsule *message){
     gw_retval_t retval = GW_SUCCESS;
+    static bool has_warn_websocket_not_ready = false;
 
     if(this->_ws_intance == nullptr){
-        GW_WARN_C("failed to send message to scheduler, websocket not ready");
+        if(unlikely(!has_warn_websocket_not_ready)){
+            GW_WARN_C("websocket not ready, turn off sending message to scheduler");
+            has_warn_websocket_not_ready = true;
+        }
         retval = GW_FAILED_NOT_READY;
         goto exit;
     }
@@ -478,6 +474,9 @@ gw_retval_t GWCapsule::__start_websocket_daemon(){
     ws_context_create_info.port = CONTEXT_PORT_NO_LISTEN;
     ws_context_create_info.protocols = this->_ws_desp.list_wb_protocols.data();
     ws_context_create_info.user = this;
+
+    // set libwebsockets log level: LLL_ERR, LLL_WARN, LLL_NOTICE, LLL_INFO
+    lws_set_log_level(LLL_WARN, nullptr);
 
     if(unlikely(nullptr == (
         this->_ws_desp.wb_context = lws_create_context(&ws_context_create_info)
@@ -572,15 +571,11 @@ void GWCapsule::__heartbeat_func(){
     static constexpr int64_t GW_CAPSULE_HEARTBEAT_INTERVAL = 5;
 
     while(likely(!this->_is_daemon_stop)){
-        // GW_IF_FAILED(
-        //     this->send_to_scheduler(&message),
-        //     retval,
-        //     {
-        //         GW_WARN_C("failed to send heartbeat message to scheduler: %s", gw_retval_str(retval));
-        //         break;
-        //     }
-        // );
-        // std::this_thread::sleep_for(std::chrono::seconds(GW_CAPSULE_HEARTBEAT_INTERVAL));
+        retval = this->send_to_scheduler(&message);
+        if(retval == GW_FAILED_NOT_READY){
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::seconds(GW_CAPSULE_HEARTBEAT_INTERVAL));
     }
     GW_DEBUG_C("heartbeat thread stopped");
 }
