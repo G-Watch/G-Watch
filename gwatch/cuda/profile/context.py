@@ -13,7 +13,7 @@ class ProfileContext:
         self,
         device_id: int,
         metric_names: List[str],
-        profiler_mode_str: str = "range"
+        profile_mode: str = "range"
     ) -> Profiler:
         """
         Create a profiler with the given mode.
@@ -21,12 +21,12 @@ class ProfileContext:
         Args:
             device_id: The ID of the device to profile.
             metric_names: The names of the metrics to profile.
-            profiler_mode_str: The mode of the profiler, options: "pm", "pc", "range".
+            profile_mode: The mode of the profiler, options: "pm", "pc", "range".
         Returns:
             A profiler object.
         """
 
-        gw_profiler = self._gw_instance.create_profiler(device_id, metric_names, profiler_mode_str)
+        gw_profiler = self._gw_instance.create_profiler(device_id, metric_names, profile_mode)
         return Profiler(gw_instance=gw_profiler)
 
 

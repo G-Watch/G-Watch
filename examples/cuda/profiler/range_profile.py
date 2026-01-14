@@ -29,10 +29,11 @@ class LargeNN(nn.Module):
         # create a profile context and profiler
         self.gw_profile_context = gwatch_profile.ProfileContext()
         self.gw_profiler = self.gw_profile_context.create_profiler(
-            device_id,
-            [
+            device_id = device_id,
+            metric_names = [
                 "sm__warps_active.avg.pct_of_peak_sustained_active"
-            ]
+            ],
+            profile_mode = "range"
         )
 
 
