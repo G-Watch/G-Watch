@@ -16,6 +16,7 @@
 #include "common/common.hpp"
 #include "common/log.hpp"
 #include "common/binary.hpp"
+#include "common/assemble/kernel.hpp"
 #include "common/assemble/kernel_def.hpp"
 #include "common/utils/timer.hpp"
 #include "common/utils/socket.hpp"
@@ -194,7 +195,7 @@ class GWCapsule {
      *  \brief  obtain the status of whether the capsule is capturing trace
      *  \return the status of whether the capsule is capturing trace
      */
-    bool is_capturing(){
+    inline bool is_capturing(){
         return this->_trace_counter.load(std::memory_order_relaxed) > 0;
     }
 
@@ -217,6 +218,29 @@ class GWCapsule {
      *  \return GW_SUCCESS if success, GW_FAILED otherwise
      */
     gw_retval_t stop_trace(uint64_t begin_hash, uint64_t end_hash, std::string line_position="");
+
+
+    /*!
+     *  \brief  obtain the status of whether the capsule is capturing kernel launch
+     *  \return the status of whether the capsule is capturing kernel launch
+     */
+    inline bool is_capturing_kernel_launch(){
+        return this->_flag_capture_kernel_launch.load(std::memory_order_relaxed) > 0;
+    }
+
+
+    /*!
+     *  \brief  start capturing kernel launch
+     *  \return GW_SUCCESS if success, GW_FAILED otherwise
+     */
+    gw_retval_t start_capturing_kernel_launch();
+
+
+    /*!
+     *  \brief  stop capturing kernel launch
+     *  \return GW_SUCCESS if success, GW_FAILED otherwise
+     */
+    gw_retval_t stop_capturing_kernel_launch(std::vector<GWKernel> &list_kernel);
 
 
     /*!
@@ -290,8 +314,11 @@ class GWCapsule {
     std::map<uint64_t, GWAppMetricTrace*> _map_begin_hash_to_app_trace;
     std::map<uint64_t, GWAppMetricTrace*> _map_end_hash_to_metric_trace;
 
-    // capture ref counter (only during capture phase we will record cpu/gpu events)
-    std::atomic<uint64_t> _trace_counter = 1;
+    // FLAG: tracing
+    std::atomic<uint64_t> _trace_counter = 0;
+
+    // FLAG: capturing kernel launch
+    alignas(64) std::atomic<uint64_t> _flag_capture_kernel_launch= 0;
     /* ======================== Event Management ======================== */
 
 
@@ -517,7 +544,7 @@ class GWCapsule {
 
     /*!
      *  \brief  parse CUfunction
-     *  \note   this function should be thread safe
+     *  \note   this function should be called during get function from module operation
      *  \param  function                the CUfunction to be parsed
      *  \param  module                  the CUmodule that contain this function
      *  \param  do_parse_entire_binary  mark whether to parse the entire binary

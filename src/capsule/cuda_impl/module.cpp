@@ -213,7 +213,6 @@ exit:
 gw_retval_t GWCapsule::CUDA_record_mapping_cufunction_cumodule(CUfunction function, CUmodule module){
     gw_retval_t retval = GW_SUCCESS;
     CUcontext cu_context = (CUcontext)0;
-    std::lock_guard lock_guard(this->_mutex_module_management);
 
     GW_IF_FAILED(
         GWUtilCUDA::get_current_cucontext(cu_context),
@@ -224,16 +223,20 @@ gw_retval_t GWCapsule::CUDA_record_mapping_cufunction_cumodule(CUfunction functi
     GW_ASSERT(function != (CUfunction)0);
     GW_ASSERT(module != (CUmodule)0);
 
-    // shouldn't happend
-    if(this->_map_cufunction_cumodule[cu_context].count(function) > 0){
-        GW_WARN_C(
-            "CUfunction-CUmodule mapping has already been recorded: "
-            "CUcontext(%p), CUfunction(%p), CUmodule(%p)",
-            cu_context, function, module
-        );
-        goto exit; 
+    {
+        std::lock_guard lock_guard(this->_mutex_module_management);
+        if(this->_map_cufunction_cumodule[cu_context].count(function) > 0){
+            // shouldn't happend
+            GW_WARN_C(
+                "CUfunction-CUmodule mapping has already been recorded: "
+                "CUcontext(%p), CUfunction(%p), CUmodule(%p)",
+                cu_context, function, module
+            );
+            goto exit; 
+        }
+        this->_map_cufunction_cumodule[cu_context].insert({ function, module });
     }
-    this->_map_cufunction_cumodule[cu_context].insert({ function, module });
+
     GW_DEBUG_C(
         "recorded mapping between CUfunction and CUmodule: "
         "CUcontext(%p), CUfunction(%p), CUmodule(%p)",
@@ -269,10 +272,8 @@ gw_retval_t GWCapsule::CUDA_parse_cufunction(
     GWBinaryImageExt_CUDAFatbin *binary_ext_fatbin = nullptr;
     GWBinaryImageExt_CUDACubin *binary_ext_cubin = nullptr;
     GWBinaryImageExt_CUDAPTX *binary_ext_ptx = nullptr;
-
     typename std::multimap<CUmodule, GWBinaryImage*>::iterator map_iter;
     bool found_kerneldef = false, is_fatbin_first_seen = false;
-
     std::lock_guard lock_guard(this->_mutex_module_management);
 
     // obtain current context
