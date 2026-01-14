@@ -266,27 +266,18 @@ gw_retval_t GWEventTrace::get_latest_parent_event(GWEvent*& event, gw_event_type
     gw_retval_t retval = GW_SUCCESS;
 
     if(unlikely(this->_map_parent_events.count(type_id) == 0)){
-        GW_WARN_C("failed to get latest parent event, no parent event for type_id: type_id(%d)", type_id);
         event = nullptr;
         retval = GW_FAILED_NOT_EXIST;
         goto exit;
     }
 
     if(unlikely(this->_map_parent_events[type_id].count(thread_id) == 0)){
-        GW_WARN_C(
-            "failed to get latest parent event, no parent event for thread: type_id(%d), thread_id(%lu)",
-            type_id, thread_id
-        );
         event = nullptr;
         retval = GW_FAILED_NOT_EXIST;
         goto exit;
     }
 
     if(unlikely(this->_map_parent_events[type_id][thread_id].empty())){
-        GW_WARN_C(
-            "failed to get latest parent event, stack is empty for thread: type_id(%d), thread_id(%lu)",
-            type_id, thread_id
-        );
         event = nullptr;
         retval = GW_FAILED_NOT_EXIST;
         goto exit;

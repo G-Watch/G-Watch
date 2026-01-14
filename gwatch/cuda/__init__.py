@@ -3,6 +3,8 @@ import ctypes
 import os
 import sys
 
+
+# load libgwatch_dark.so for CUDA platform
 def _load_gwatch_dark():
     # find libgwatch_dark.so in the package root
     current_dir = os.path.dirname(os.path.abspath(__file__))

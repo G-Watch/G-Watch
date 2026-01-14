@@ -28,13 +28,25 @@ void __gw_pybind_cuda_init_profile_context_interface(pybind11::module_ &m){
             gw_profiler_mode_t profiler_mode;
             
             // dispatch profiler mode
-            if(profiler_mode_str != "pm" and profiler_mode_str!= "range" and profiler_mode_str != ""){
-                throw GWException("invalid profiler mode: %s, please use either 'pm' or 'range'", profiler_mode_str.c_str());
+            if( profiler_mode_str != "pm"
+                and profiler_mode_str != "pc"
+                and profiler_mode_str != "range"
+                and profiler_mode_str != ""
+            ){
+                throw GWException(
+                    "invalid profiler mode: %s, please use either 'pm', 'pc', or 'range'",
+                    profiler_mode_str.c_str()
+                );
             }
             if(profiler_mode_str == "pm"){
                 profiler_mode = GWProfiler_Mode_CUDA_PM_Sampling;
                 #if !(GW_CUDA_VERSION_MAJOR >= 12 && GW_CUDA_VERSION_MINOR >= 6)
                     throw GWException("PM sampling is not supported before CUDA 12.6");
+                #endif
+            } else if(profiler_mode_str == "pc"){
+                profiler_mode = GWProfiler_Mode_CUDA_PC_Sampling;
+                #if !(GW_CUDA_VERSION_MAJOR >= 9)
+                    throw GWException("PC sampling is not supported before CUDA 9");
                 #endif
             } else {
                 // default is range profiling mode

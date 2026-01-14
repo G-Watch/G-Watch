@@ -8,6 +8,7 @@
 
 #include "common/common.hpp"
 #include "common/log.hpp"
+#include "common/assemble/kernel.hpp"
 #include "capsule/capsule.hpp"
 #include "capsule/event.hpp"
 
@@ -24,6 +25,20 @@ extern GWCapsule *capsule;
 bool __init_capsule();
 
 
+/*!
+ *  \brief  start capture kernel launch
+ */
+void GW_INTERNAL_start_capture_kernel_launch();
+
+
+/*!
+ *  \brief  stop capture kernel launch
+ *  \return list of captured kernels
+ */
+std::vector<GWKernel> GW_INTERNAL_stop_capture_kernel_launch();
+
+
+// NOTE(zhuobin): below are legacy APIs, should be deprecated in the future
 /*!
  *  \brief  create trace task
  *  \param  type    trace application of the trace task

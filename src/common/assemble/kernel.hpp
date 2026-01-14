@@ -37,6 +37,17 @@ class GWKernel {
 
 
     /*!
+     *  \brief  assignment operator
+     */
+    GWKernel& operator=(const GWKernel& other) {
+        if (this != &other) {
+            this->assign(other);
+        }
+        return *this;
+    }
+
+
+    /*!
      *  \brief  obtain the definition of the current kernel instance
      *  \return definition of the current kernel instance
      */
@@ -69,5 +80,21 @@ class GWKernel {
  protected:
     // the underlying kernel of this instance
     GWKernelDef* _def;
+
+
+    /*!
+     *  \brief  assignment implementation
+     */
+    virtual void assign(const GWKernel& other) {
+        this->_def = other._def;
+        this->grid_dim_x = other.grid_dim_x;
+        this->grid_dim_y = other.grid_dim_y;
+        this->grid_dim_z = other.grid_dim_z;
+        this->block_dim_x = other.block_dim_x;
+        this->block_dim_y = other.block_dim_y;
+        this->block_dim_z = other.block_dim_z;
+        this->shared_mem_bytes = other.shared_mem_bytes;
+        this->stream = other.stream;
+    }
     /* ==================== Common ==================== */
 };

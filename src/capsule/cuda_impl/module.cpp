@@ -213,7 +213,6 @@ exit:
 gw_retval_t GWCapsule::CUDA_record_mapping_cufunction_cumodule(CUfunction function, CUmodule module){
     gw_retval_t retval = GW_SUCCESS;
     CUcontext cu_context = (CUcontext)0;
-    std::lock_guard lock_guard(this->_mutex_module_management);
 
     GW_IF_FAILED(
         GWUtilCUDA::get_current_cucontext(cu_context),
@@ -224,16 +223,20 @@ gw_retval_t GWCapsule::CUDA_record_mapping_cufunction_cumodule(CUfunction functi
     GW_ASSERT(function != (CUfunction)0);
     GW_ASSERT(module != (CUmodule)0);
 
-    // shouldn't happend
-    if(this->_map_cufunction_cumodule[cu_context].count(function) > 0){
-        GW_WARN_C(
-            "CUfunction-CUmodule mapping has already been recorded: "
-            "CUcontext(%p), CUfunction(%p), CUmodule(%p)",
-            cu_context, function, module
-        );
-        goto exit; 
+    {
+        std::lock_guard lock_guard(this->_mutex_module_management);
+        if(this->_map_cufunction_cumodule[cu_context].count(function) > 0){
+            // shouldn't happend
+            GW_WARN_C(
+                "CUfunction-CUmodule mapping has already been recorded: "
+                "CUcontext(%p), CUfunction(%p), CUmodule(%p)",
+                cu_context, function, module
+            );
+            goto exit; 
+        }
+        this->_map_cufunction_cumodule[cu_context].insert({ function, module });
     }
-    this->_map_cufunction_cumodule[cu_context].insert({ function, module });
+
     GW_DEBUG_C(
         "recorded mapping between CUfunction and CUmodule: "
         "CUcontext(%p), CUfunction(%p), CUmodule(%p)",
@@ -269,10 +272,8 @@ gw_retval_t GWCapsule::CUDA_parse_cufunction(
     GWBinaryImageExt_CUDAFatbin *binary_ext_fatbin = nullptr;
     GWBinaryImageExt_CUDACubin *binary_ext_cubin = nullptr;
     GWBinaryImageExt_CUDAPTX *binary_ext_ptx = nullptr;
-
     typename std::multimap<CUmodule, GWBinaryImage*>::iterator map_iter;
     bool found_kerneldef = false, is_fatbin_first_seen = false;
-
     std::lock_guard lock_guard(this->_mutex_module_management);
 
     // obtain current context
@@ -381,6 +382,7 @@ gw_retval_t GWCapsule::CUDA_parse_cufunction(
     if(binary_type == GWBinaryUtility_CUDA::GW_CUDA_BINARY_FATBIN){
         if(this->_map_cumodule_fatbin[cu_context].count(module) > 0){
             GW_CHECK_POINTER(binary_fatbin = this->_map_cumodule_fatbin[cu_context][module]);
+            GW_CHECK_POINTER(binary_ext_fatbin = GWBinaryImageExt_CUDAFatbin::get_ext_ptr(binary_fatbin));
         } else {
             GW_CHECK_POINTER(binary_ext_fatbin = GWBinaryImageExt_CUDAFatbin::create());
             GW_CHECK_POINTER(binary_fatbin = binary_ext_fatbin->get_base_ptr());
@@ -501,7 +503,6 @@ gw_retval_t GWCapsule::CUDA_parse_cufunction(
                     /* arch_version_2 */ current_arch_version,
                     /* ignore_variant_suffix */ true
                 )){
-                    
                     tmp_retval = binary_ext_cubin->get_kerneldef_by_name(mangled_name, kerneldef);
                     if(tmp_retval == GW_SUCCESS){
                         if(found_kerneldef == true){
@@ -581,6 +582,15 @@ gw_retval_t GWCapsule::CUDA_parse_cufunction(
             GW_ASSERT(this->_map_cumodule_cubin[cu_context].count(module) == 1);
             map_iter = this->_map_cumodule_cubin[cu_context].find(module);
             GW_CHECK_POINTER(binary_cubin = map_iter->second);
+            GW_CHECK_POINTER(binary_ext_cubin = GWBinaryImageExt_CUDACubin::get_ext_ptr(binary_cubin))
+            GW_IF_FAILED(
+                binary_ext_cubin->get_arch_version_from_byte_sequence(cubin_arch_version),
+                retval,
+                {
+                    GW_WARN("failed to extract cubin arch version: error(%s)", gw_retval_str(tmp_retval));
+                    goto exit;
+                }
+            );
         } else {
             GW_CHECK_POINTER(binary_ext_cubin = GWBinaryImageExt_CUDACubin::create());
             GW_CHECK_POINTER(binary_cubin = binary_ext_cubin->get_base_ptr());
@@ -704,8 +714,24 @@ gw_retval_t GWCapsule::CUDA_parse_cufunction(
     if(unlikely(found_kerneldef == false)){
         GW_WARN_C(
             "failed to parse CUfunction due to failed to find the function in the binary: "
-            "CUfunction(%p), CUmodule(%p), function(%s), arch_version(%s)",
-            function, module, mangled_name.c_str(), current_arch_version.c_str()
+            "CUfunction(%p), CUmodule(%p), binary_type(%s), function(%s), cubin_arch_version(%s), current_arch_version(%s)",
+            function,
+            module,
+            [](GWBinaryUtility_CUDA::gw_cuda_binary_t type){
+                switch(type){
+                    case GWBinaryUtility_CUDA::GW_CUDA_BINARY_FATBIN:
+                        return "FATBIN";
+                    case GWBinaryUtility_CUDA::GW_CUDA_BINARY_CUBIN:
+                        return "CUBIN";
+                    case GWBinaryUtility_CUDA::GW_CUDA_BINARY_PTX:
+                        return "PTX";
+                    default:
+                        return "UNKNOWN";
+                }
+            }(binary_type),
+            mangled_name.c_str(),
+            cubin_arch_version.c_str(),
+            current_arch_version.c_str()
         );
         retval = GW_FAILED_NOT_EXIST;
         goto exit;
@@ -734,25 +760,18 @@ gw_retval_t GWCapsule::CUDA_parse_cufunction(
         { "cu_function", GWUtilString::ptr_to_hex_string((const void*)(function)) },
         { "arch", kernel_arch_version }
     };
-    GW_IF_FAILED(
-        this->send_to_scheduler(message_write_sql),
-        retval,
-        {
-            GW_WARN_C(
-                "failed to send CUDA kernel (SQL) to scheduler: function(%p), error(%s)",
-                function, gw_retval_str(retval)
-            );
-            goto exit;
-        }
-    );
+    tmp_retval = this->send_to_scheduler(message_write_sql);
+    if(tmp_retval == GW_SUCCESS){
+        GW_DEBUG("sent CUDA kernel (SQL) to scheduler: function(%p)", function);
+    }
 
-exit:
+ exit:
     return retval;
 }
 
 
 gw_retval_t GWCapsule::CUDA_report_function(CUfunction function){
-    gw_retval_t retval = GW_SUCCESS;
+    gw_retval_t retval = GW_SUCCESS, tmp_retval = GW_SUCCESS;
     CUresult cudv_retval = CUDA_SUCCESS;
     GWInternalMessage_Capsule capsule_message;
     GWInternalMessagePayload_Common_DB_KV_Write *payload;
@@ -853,27 +872,14 @@ gw_retval_t GWCapsule::CUDA_report_function(CUfunction function){
         local_mem_size,
         num_reg
     );
-    GW_IF_FAILED(
-        this->send_to_scheduler(&capsule_message),
-        retval,
-        {
-            GW_WARN_C("failed to write_db for kernel report: %s", capsule_message.serialize().c_str());
-            goto exit;
-        }
-    );
-    GW_LOG(
-        "reported function: "
-        "demangled_name(%s), "
-        "sass_version(%d), "
-        "ptx_version(%d), "
-        "max_thread_per_block(%d), "
-        "static_smem_size(%d), "
-        "max_dynamic_smem_size(%d), "
-        "const_mem_size(%d), "
-        "local_mem_size(%d), "
-        "num_reg(%d)"
-        ,
-        demangled_name.c_str(),
+    tmp_retval = this->send_to_scheduler(&capsule_message);
+    if(tmp_retval == GW_SUCCESS){
+        GW_DEBUG("sent function report to scheduler: function(%p)", function);
+    }
+
+    GW_DEBUG(
+        "recorded function: function(%p), demangled_name(%s), sass_version(%d), ptx_version(%d), max_thread_per_block(%d), static_smem_size(%d), max_dynamic_smem_size(%d), const_mem_size(%d), local_mem_size(%d), num_reg(%d)",
+        function, demangled_name.c_str(),
         sass_version, ptx_version,
         max_thread_per_block,
         static_smem_size,
