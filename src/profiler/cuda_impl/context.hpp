@@ -9,6 +9,7 @@
 #include <cuda.h>
 #include <nvml.h>
 #include <cuda_runtime_api.h>
+#include <cupti.h>
 #include <cupti_target.h>
 #include <cupti_profiler_target.h>
 
@@ -30,12 +31,25 @@ class GWProfileContext_CUDA final : public GWProfileContext {
 
 
  protected:
+    // CUPTI subscriber handle
+    CUpti_SubscriberHandle _cupti_subscriber = (CUpti_SubscriberHandle)0;
+
     /*!
      *  \brief  init speficied device under this profiler context
      *  \param  device_id       index of the device to be profiled
      *  \return GW_SUCCESS for successfully initialized
      */
     gw_retval_t __init_gw_device(int device_id) override;
+
+
+    /*!
+     *  \brief  callback handler for CUPTI subscription
+     *  \param  userdata    user data
+     *  \param  domain      callback domain
+     *  \param  cbid        callback id
+     *  \param  cbdata      callback data
+     */
+    static void CUPTIAPI __cupti_callback_handler(void *userdata, CUpti_CallbackDomain domain, CUpti_CallbackId cbid, const void *cbdata);
     /* ==================== Common ==================== */
 
 
@@ -68,7 +82,6 @@ class GWProfileContext_CUDA final : public GWProfileContext {
 
     /* ==================== power management ==================== */
  public:
-    
     /* ==================== power management ==================== */
 
 

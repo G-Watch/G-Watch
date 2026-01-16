@@ -189,6 +189,59 @@ class GWCapsule {
     /* ======================== Trace Management ======================== */
 
 
+    /* ======================== Trace Management: kernel ======================== */
+ public:
+    /*!
+     *  \brief  obtain the status of whether the capsule is tracing kernel launch
+     *  \return the status of whether the capsule is tracing kernel launch
+     */
+    inline bool is_tracing_kernel_launch(){
+        return this->_flag_trace_kernel_launch.load(std::memory_order_relaxed);
+    }
+
+
+    /*!
+     *  \brief  start tracing kernel launch
+     *  \return GW_SUCCESS if success, GW_FAILED otherwise
+     */
+    gw_retval_t start_tracing_kernel_launch();
+
+
+    /*!
+     *  \brief  stop tracing kernel launch
+     *  \return GW_SUCCESS if success, GW_FAILED otherwise
+     */
+    gw_retval_t stop_tracing_kernel_launch(std::vector<GWKernel*> &list_kernel);
+ 
+
+    /*!
+     *  \brief  add an event trace for tracing kernel launch
+     *  \param  kernel  kernel to be traced
+     */
+    inline void append_kernel_launch(GWKernel* kernel){
+        if(unlikely(GWCapsule::q_kernel_launch == nullptr)){
+            GWCapsule::q_kernel_launch = new GWUtilsLockFreeQueue<GWKernel*>();
+            GW_CHECK_POINTER(GWCapsule::q_kernel_launch);
+            {
+                std::lock_guard lock(this->_mutex_list_q_trace_kernel_launch);
+                this->_list_q_trace_kernel_launch.push_back(GWCapsule::q_kernel_launch);
+            }
+        }
+        GWCapsule::q_kernel_launch->push(kernel);
+    }
+
+
+ private:
+    // flag for tracing kernel launch
+    alignas(64) std::atomic<bool> _flag_trace_kernel_launch{false};
+
+    // event trace queue for tracing kernel launch
+    std::mutex _mutex_list_q_trace_kernel_launch;
+    static thread_local GWUtilsLockFreeQueue<GWKernel*>* q_kernel_launch;
+    std::vector<GWUtilsLockFreeQueue<GWKernel*>*> _list_q_trace_kernel_launch;
+    /* ======================== Trace Managemen: kernel ======================== */
+
+
     /* ======================== Event Management ======================== */
  public:
     /*!
@@ -218,29 +271,6 @@ class GWCapsule {
      *  \return GW_SUCCESS if success, GW_FAILED otherwise
      */
     gw_retval_t stop_trace(uint64_t begin_hash, uint64_t end_hash, std::string line_position="");
-
-
-    /*!
-     *  \brief  obtain the status of whether the capsule is capturing kernel launch
-     *  \return the status of whether the capsule is capturing kernel launch
-     */
-    inline bool is_capturing_kernel_launch(){
-        return this->_flag_capture_kernel_launch.load(std::memory_order_relaxed) > 0;
-    }
-
-
-    /*!
-     *  \brief  start capturing kernel launch
-     *  \return GW_SUCCESS if success, GW_FAILED otherwise
-     */
-    gw_retval_t start_capturing_kernel_launch();
-
-
-    /*!
-     *  \brief  stop capturing kernel launch
-     *  \return GW_SUCCESS if success, GW_FAILED otherwise
-     */
-    gw_retval_t stop_capturing_kernel_launch(std::vector<GWKernel> &list_kernel);
 
 
     /*!
@@ -316,9 +346,6 @@ class GWCapsule {
 
     // FLAG: tracing
     std::atomic<uint64_t> _trace_counter = 0;
-
-    // FLAG: capturing kernel launch
-    alignas(64) std::atomic<uint64_t> _flag_capture_kernel_launch= 0;
     /* ======================== Event Management ======================== */
 
 
@@ -562,6 +589,33 @@ class GWCapsule {
     gw_retval_t CUDA_report_function(CUfunction function);
 
 
+    /*!
+     *  \brief  get the kernel definition by CUfunction
+     *  \note   this function is thread safe 
+     *  \param  function    the CUfunction to be recorded
+     *  \param  kernel_def  the kernel definition to be recorded
+     *  \return GW_SUCCESS  for successful recording
+     */
+    gw_retval_t CUDA_get_kerneldef_by_cufunction(CUfunction function, GWKernelDef*& kernel_def);
+
+
+    /*!
+     *  \brief  get the kernel definition by name
+     *  \param  name            name of the kernel
+     *  \param  kernel_def      pointer to the kernel definition
+     *  \return GW_SUCCESS if success, otherwise GW_FAILURE
+     */
+    gw_retval_t CUDA_get_kerneldef_by_name(std::string name, GWKernelDef*& kernel_def);
+
+
+    /*!
+     *  \brief  get the map of kernel definitions
+     *  \param  map_name_kerneldef map of kernel definitions: <name, kernel_def>
+     *  \return GW_SUCCESS if success, otherwise GW_FAILURE
+     */
+    gw_retval_t CUDA_get_map_kerneldef(std::map<std::string, GWKernelDef*>& map_name_kerneldef);
+
+
  private:
     // mutex for manage modules
     std::mutex _mutex_module_management;
@@ -589,6 +643,9 @@ class GWCapsule {
 
     // map of CUmodule with its contained ptx: <cucontext, <module, ptx>>
     std::map<CUcontext, std::multimap<CUmodule, GWBinaryImage*>> _map_cumodule_ptx;
+
+    // map of kernel name with its corresponding kernel definition: <cucontext, <kernel_name, kernel_def>>
+    std::map<CUcontext, std::map<std::string, GWKernelDef*>> _map_name_kerneldef;
 
     // libraries registered by user
     std::map<CUfunction, gw_cuda_function_attribute_t*> _map_trace_function;

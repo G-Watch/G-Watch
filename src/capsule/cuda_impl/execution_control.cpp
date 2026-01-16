@@ -16,14 +16,14 @@
 
 #include "common/common.hpp"
 #include "common/log.hpp"
+#include "capsule/trace.hpp"
 #include "common/utils/cuda.hpp"
 #include "common/assemble/kernel.hpp"
 #include "common/assemble/kernel_def.hpp"
 #include "common/cuda_impl/assemble/kernel_cuda.hpp"
 #include "common/cuda_impl/assemble/kernel_def_sass.hpp"
 #include "capsule/capsule.hpp"
-#include "capsule/trace.hpp"
-#include "capsule/cuda_impl/hijack/runtime.hpp"
+#include "capsule/hijack/cuda_impl/runtime.hpp"
 #include "scheduler/serve/capsule_message.hpp"
 
 

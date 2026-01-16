@@ -43,6 +43,7 @@
 #endif
 
 
+thread_local GWUtilsLockFreeQueue<GWKernel*>* GWCapsule::q_kernel_launch = nullptr;
 thread_local std::thread* GWCapsule::_event_report_thread = nullptr;
 thread_local GWEventTrace *GWCapsule::event_trace = nullptr;
 thread_local std::vector<GWTraceTask*> GWCapsule::_list_trace_task;
@@ -114,13 +115,13 @@ GWCapsule::GWCapsule()
 
     // initailize profiler
     #if GW_BACKEND_CUDA
-        retval = GWUtilSystem::get_env_variable("GW_ENABLE_COREDUMP", env_value);
-        if(likely(retval == GW_SUCCESS)){
-            GW_DEBUG_C("coredump enabled, profiler is disabled")
-            this->_coredump_file_path = this->_log_file_dir + "/core.%t.%h.%p.nvcudmp";
-        } else {
-            GW_CHECK_POINTER(this->profile_context_cuda = new GWProfileContext_CUDA());
-        }
+        // retval = GWUtilSystem::get_env_variable("GW_ENABLE_COREDUMP", env_value);
+        // if(likely(retval == GW_SUCCESS)){
+        //     GW_DEBUG_C("coredump enabled, profiler is disabled")
+        //     this->_coredump_file_path = this->_log_file_dir + "/core.%t.%h.%p.nvcudmp";
+        // } else {
+        //     GW_CHECK_POINTER(this->profile_context_cuda = new GWProfileContext_CUDA());
+        // }
     #endif
 
     GW_IF_FAILED(
@@ -215,6 +216,42 @@ bool GWCapsule::do_need_trace_kernel(std::string kernel_name){
     }
 
 exit:
+    return retval;
+}
+
+
+gw_retval_t GWCapsule::start_tracing_kernel_launch(){
+    gw_retval_t retval = GW_SUCCESS;
+    this->_flag_trace_kernel_launch.store(true);
+    return retval;
+}
+
+
+gw_retval_t GWCapsule::stop_tracing_kernel_launch(std::vector<GWKernel*> &list_kernel){
+    GWKernel *kernel = nullptr;
+    gw_retval_t retval = GW_SUCCESS;
+
+    // stop tracing kernel launch
+    this->_flag_trace_kernel_launch.store(false);
+
+    // pop all kernel from queue
+    list_kernel.clear();
+    for(auto& q_kernel_launch : this->_list_q_trace_kernel_launch){
+        GW_CHECK_POINTER(q_kernel_launch);
+        while(q_kernel_launch->len() > 0){
+            GW_IF_FAILED(
+                q_kernel_launch->dequeue(kernel),
+                retval,
+                {
+                    GW_WARN_C("failed to dequeue kernel launch trace from queue");
+                    goto exit;
+                }
+            );
+            list_kernel.push_back(kernel);
+        }
+    }
+
+ exit:
     return retval;
 }
 

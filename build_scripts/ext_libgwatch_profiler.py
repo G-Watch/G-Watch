@@ -14,7 +14,6 @@ def build_gwatch_profiler(opt: _BuildOptions) -> Tuple[str,str,bool]:
     profiler_exe_sources += glob.glob(f"{root_dir}/src/profiler_main/*.cpp", recursive=False)
     if build_backend == "cuda":
         profiler_exe_sources += glob.glob(f"{root_dir}/src/profiler/cuda_impl/**/*.cpp", recursive=True)
-        profiler_exe_sources += glob.glob(f"{root_dir}/src/common/cuda_impl/cupti/**/*.cpp", recursive=True)
 
     # includes
     profiler_exe_includes = copy.deepcopy(common_includes)

@@ -9,6 +9,7 @@ script_path = os.path.join(root_dir, "scripts", "get_cuda_version.sh")
 cuda_version, _, ok = execute_command(cmd=["bash", script_path])
 if ok == False:
     raise RuntimeError(f"failed to obtain CUDA version, {cuda_version}")
+cuda_version = cuda_version.strip()
 cuda_version_major = int(cuda_version.split(".")[0])
 cuda_version_minor = int(cuda_version.split(".")[1])
 

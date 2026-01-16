@@ -14,6 +14,7 @@
 #include "common/assemble/kernel_def.hpp"
 #include "common/utils/string.hpp"
 #include "common/utils/cuda.hpp"
+#include "common/cuda_impl/real_apis.hpp"
 #include "common/cuda_impl/binary/cubin.hpp"
 #include "common/cuda_impl/binary/fatbin.hpp"
 #include "common/cuda_impl/binary/ptx.hpp"
@@ -434,7 +435,7 @@ gw_retval_t GWCapsule::CUDA_parse_cufunction(
             if(is_fatbin_first_seen == true){
                 // build the map: <module, ptx>
                 this->_map_cumodule_ptx[cu_context].insert({ module, binary_ptx });
-                GW_DEBUG(
+                GW_DEBUG_C(
                     "recorded PTX from CUmodule: CUcontext(%p), CUmodule(%p), PTX(%p)",
                     cu_context, module, binary_ptx
                 );
@@ -476,7 +477,7 @@ gw_retval_t GWCapsule::CUDA_parse_cufunction(
             // build the map: <module, cubin>
             if(is_fatbin_first_seen == true){
                 this->_map_cumodule_cubin[cu_context].insert({ module, binary_cubin });
-                GW_DEBUG(
+                GW_DEBUG_C(
                     "recorded CUBIN from CUmodule: CUcontext(%p), CUmodule(%p), CUBIN(%p), arch_version(%s)",
                     cu_context, module, binary_cubin, cubin_arch_version.c_str()
                 );
@@ -518,8 +519,9 @@ gw_retval_t GWCapsule::CUDA_parse_cufunction(
 
                         // record to map
                         this->_map_cufunction_kerneldef[cu_context].insert({ function, kerneldef });
+                        this->_map_name_kerneldef[cu_context].insert({ mangled_name, kerneldef });
                         found_kerneldef = true;
-                        GW_DEBUG(
+                        GW_DEBUG_C(
                             "recorded CUfunction from CUmodule: CUcontext(%p), CUmodule(%p), CUfunction(%p), arch_version(%s)",
                             cu_context, module, function, cubin_arch_version.c_str()
                         );
@@ -535,7 +537,7 @@ gw_retval_t GWCapsule::CUDA_parse_cufunction(
                             GWBinaryUtility_CUDA::is_arch_equal(
                                 /* arch_version_1 */ current_arch_version,
                                 /* arch_version_2 */ kernel_arch_version,
-                                /* ignore_variant_suffix */ false
+                                /* ignore_variant_suffix */ true
                             )
                         );
                     }
@@ -553,8 +555,9 @@ gw_retval_t GWCapsule::CUDA_parse_cufunction(
 
                             // record to map
                             this->_map_cufunction_kerneldef[cu_context].insert({ function, kerneldef });
+                            this->_map_name_kerneldef[cu_context].insert({ mangled_name, kerneldef });
                             found_kerneldef = true;
-                            GW_DEBUG(
+                            GW_DEBUG_C(
                                 "recorded CUfunction from CUmodule: CUcontext(%p), CUmodule(%p), CUfunction(%p), arch_version(%s)",
                                 cu_context, module, function, cubin_arch_version.c_str()
                             );
@@ -569,7 +572,7 @@ gw_retval_t GWCapsule::CUDA_parse_cufunction(
                                 GWBinaryUtility_CUDA::is_arch_equal(
                                     /* arch_version_1 */ current_arch_version,
                                     /* arch_version_2 */ kernel_arch_version,
-                                    /* ignore_variant_suffix */ false
+                                    /* ignore_variant_suffix */ true
                                 )
                             );
                         }
@@ -622,7 +625,7 @@ gw_retval_t GWCapsule::CUDA_parse_cufunction(
                     goto exit;
                 }
             );
-            GW_DEBUG(
+            GW_DEBUG_C(
                 "recorded CUBIN from CUmodule: CUcontext(%p), CUmodule(%p), CUBIN(%p), arch_version(%s)",
                 cu_context, module, binary_cubin, cubin_arch_version.c_str()
             );
@@ -651,8 +654,9 @@ gw_retval_t GWCapsule::CUDA_parse_cufunction(
                 if(tmp_retval == GW_SUCCESS){
                     // record to map
                     this->_map_cufunction_kerneldef[cu_context].insert({ function, kerneldef });
+                    this->_map_name_kerneldef[cu_context].insert({ mangled_name, kerneldef });
                     found_kerneldef = true;
-                    GW_DEBUG(
+                    GW_DEBUG_C(
                         "recorded CUfunction from CUmodule: CUcontext(%p), CUmodule(%p), CUfunction(%p), arch_version(%s)",
                         cu_context, module, function, binary_ext_cubin->params().arch_version.c_str()
                     );
@@ -668,7 +672,7 @@ gw_retval_t GWCapsule::CUDA_parse_cufunction(
                         GWBinaryUtility_CUDA::is_arch_equal(
                             /* arch_version_1 */ current_arch_version,
                             /* arch_version_2 */ kernel_arch_version,
-                            /* ignore_variant_suffix */ false
+                            /* ignore_variant_suffix */ true
                         )
                     );
                 }
@@ -683,8 +687,9 @@ gw_retval_t GWCapsule::CUDA_parse_cufunction(
                 if(tmp_retval == GW_SUCCESS){
                     // record to map
                     this->_map_cufunction_kerneldef[cu_context].insert({ function, kerneldef });
+                    this->_map_name_kerneldef[cu_context].insert({ mangled_name, kerneldef });
                     found_kerneldef = true;
-                    GW_DEBUG(
+                    GW_DEBUG_C(
                         "recorded CUfunction from CUmodule: CUcontext(%p), CUmodule(%p), CUfunction(%p), arch_version(%s)",
                         cu_context, module, function, binary_ext_cubin->params().arch_version.c_str()
                     );
@@ -700,7 +705,7 @@ gw_retval_t GWCapsule::CUDA_parse_cufunction(
                         GWBinaryUtility_CUDA::is_arch_equal(
                             /* arch_version_1 */ current_arch_version,
                             /* arch_version_2 */ kernel_arch_version,
-                            /* ignore_variant_suffix */ false
+                            /* ignore_variant_suffix */ true
                         )
                     );
                 } // gw_cubin_get_kerneldef_by_name
@@ -762,7 +767,7 @@ gw_retval_t GWCapsule::CUDA_parse_cufunction(
     };
     tmp_retval = this->send_to_scheduler(message_write_sql);
     if(tmp_retval == GW_SUCCESS){
-        GW_DEBUG("sent CUDA kernel (SQL) to scheduler: function(%p)", function);
+        GW_DEBUG_C("sent CUDA kernel (SQL) to scheduler: function(%p)", function);
     }
 
  exit:
@@ -874,10 +879,10 @@ gw_retval_t GWCapsule::CUDA_report_function(CUfunction function){
     );
     tmp_retval = this->send_to_scheduler(&capsule_message);
     if(tmp_retval == GW_SUCCESS){
-        GW_DEBUG("sent function report to scheduler: function(%p)", function);
+        GW_DEBUG_C("sent function report to scheduler: function(%p)", function);
     }
 
-    GW_DEBUG(
+    GW_DEBUG_C(
         "recorded function: function(%p), demangled_name(%s), sass_version(%d), ptx_version(%d), max_thread_per_block(%d), static_smem_size(%d), max_dynamic_smem_size(%d), const_mem_size(%d), local_mem_size(%d), num_reg(%d)",
         function, demangled_name.c_str(),
         sass_version, ptx_version,
@@ -890,5 +895,82 @@ gw_retval_t GWCapsule::CUDA_report_function(CUfunction function){
     );
 
 exit:
+    return retval;
+}
+
+
+gw_retval_t GWCapsule::CUDA_get_kerneldef_by_cufunction(CUfunction function, GWKernelDef*& kernel_def) {
+    gw_retval_t retval = GW_SUCCESS;
+    CUcontext cu_context = (CUcontext)0;
+
+    // obtain current context
+    GW_IF_FAILED(
+        GWUtilCUDA::get_current_cucontext(cu_context),
+        retval,
+        goto exit;
+    );
+    GW_ASSERT(cu_context != (CUcontext)0);
+
+    {
+        std::lock_guard<std::mutex>(this->_mutex_module_management);
+        if(this->_map_cufunction_kerneldef[cu_context].count(function) > 0){
+            kernel_def = this->_map_cufunction_kerneldef[cu_context][function];
+        } else {
+            kernel_def = nullptr;
+            retval = GW_FAILED_NOT_EXIST;
+        }
+    }
+
+ exit:
+    return retval;
+}
+
+
+gw_retval_t GWCapsule::CUDA_get_kerneldef_by_name(std::string name, GWKernelDef*& kernel_def){
+    gw_retval_t retval = GW_SUCCESS;
+    CUcontext cu_context = (CUcontext)0;
+
+    // obtain current context
+    GW_IF_FAILED(
+        GWUtilCUDA::get_current_cucontext(cu_context),
+        retval,
+        goto exit;
+    );
+
+    {
+        std::lock_guard<std::mutex>(this->_mutex_module_management);
+        if(this->_map_name_kerneldef[cu_context].count(name) > 0){
+            kernel_def = this->_map_name_kerneldef[cu_context][name];
+        } else {
+            kernel_def = nullptr;
+            retval = GW_FAILED_NOT_EXIST;
+        }
+    }
+
+ exit:
+    return retval;
+}
+
+
+gw_retval_t GWCapsule::CUDA_get_map_kerneldef(std::map<std::string, GWKernelDef*>& map_name_kerneldef) {
+    gw_retval_t retval = GW_SUCCESS;
+    CUcontext cu_context = (CUcontext)0;
+
+    // obtain current context
+    GW_IF_FAILED(
+        GWUtilCUDA::get_current_cucontext(cu_context),
+        retval,
+        goto exit;
+    );
+    
+    {
+        std::lock_guard lock_guard(this->_mutex_module_management);
+        map_name_kerneldef.clear();
+        for(auto& [name, kernel_def] : this->_map_name_kerneldef[cu_context]){
+            map_name_kerneldef.insert({ name, kernel_def });
+        }
+    }
+
+ exit:
     return retval;
 }

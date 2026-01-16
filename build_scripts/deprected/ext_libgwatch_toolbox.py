@@ -19,7 +19,6 @@ def build_libgwatch_toolbox(opt: _BuildOptions) -> Tuple[str,str,bool]:
     toolbox_sources = [s for s in toolbox_sources if "main.cpp" not in s] # exclude main.cpp from library build
     if build_backend == "cuda":
         toolbox_sources += glob.glob(f"{root_dir}/src/profiler/cuda_impl/**/*.cpp", recursive=True)
-        toolbox_sources += glob.glob(f"{root_dir}/src/common/cuda_impl/cupti/**/*.cpp", recursive=True)
 
     # includes
     toolbox_includes = copy.deepcopy(common_includes)

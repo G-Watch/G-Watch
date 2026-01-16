@@ -11,7 +11,7 @@
 #include "common/utils/exception.hpp"
 #include "capsule/event.hpp"
 #include "capsule/trace.hpp"
-#include "binding/internal_interface.hpp"
+#include "binding/runtime_control.hpp"
 
 // public header
 #include "gwatch/capsule.hpp"
@@ -99,14 +99,14 @@ bool TraceEvent::IsArchived(){
 
 
 TraceTask::TraceTask(std::string type){
-    this->_gw_trace_task_handle = (void*)GW_INTERNAL_create_trace_task(type);
+    this->_gw_trace_task_handle = (void*)gw_rt_control_create_trace_task(type);
     GW_CHECK_POINTER(this->_gw_trace_task_handle);
 }
 
 
 TraceTask::~TraceTask(){
     if(this->_gw_trace_task_handle)
-        GW_INTERNAL_destory_trace_task((GWTraceTask*)this->_gw_trace_task_handle);
+        gw_rt_control_destory_trace_task((GWTraceTask*)this->_gw_trace_task_handle);
 }
 
 
@@ -180,49 +180,49 @@ TraceContext::~TraceContext()
 
 gwError TraceContext::StartTracing(std::string name, uint64_t hash, std::string line_position){
     gwError ret = gwSuccess;
-    GW_INTERNAL_start_app_trace(name, hash, line_position);
+    gw_rt_control_start_app_trace(name, hash, line_position);
     return ret;
 }
 
 
 gwError TraceContext::StopTracing(uint64_t begin_hash, uint64_t end_hash, std::string line_position){
     gwError ret = gwSuccess;
-    GW_INTERNAL_stop_app_trace(begin_hash, end_hash, line_position);
+    gw_rt_control_stop_app_trace(begin_hash, end_hash, line_position);
     return ret;
 }
 
 
 gwError TraceContext::PushEvent(TraceEvent *event){
     gwError ret = gwSuccess;
-    GW_INTERNAL_push_app_event((GWEvent*)event->_gw_event_handle);
+    gw_rt_control_push_app_event((GWEvent*)event->_gw_event_handle);
     return ret;
 }
 
 
 gwError TraceContext::PushParentEvent(TraceEvent *event){
     gwError ret = gwSuccess;
-    GW_INTERNAL_push_app_parent_event((GWEvent*)event->_gw_event_handle);
+    gw_rt_control_push_app_parent_event((GWEvent*)event->_gw_event_handle);
     return ret;
 }
 
 
 gwError TraceContext::PopParentEvent(){
     gwError ret = gwSuccess;
-    GW_INTERNAL_pop_app_parent_event();
+    gw_rt_control_pop_app_parent_event();
     return ret;
 }
 
 
 gwError TraceContext::RegisterTraceTask(TraceTask *task){
     gwError ret = gwSuccess;
-    GW_INTERNAL_register_trace_task((GWTraceTask*)task->_gw_trace_task_handle);
+    gw_rt_control_register_trace_task((GWTraceTask*)task->_gw_trace_task_handle);
     return ret;
 }
 
 
 gwError TraceContext::UnregisterTraceTask(TraceTask *task){
     gwError ret = gwSuccess;
-    GW_INTERNAL_unregister_trace_task((GWTraceTask*)task->_gw_trace_task_handle);
+    gw_rt_control_unregister_trace_task((GWTraceTask*)task->_gw_trace_task_handle);
     return ret;
 }
 

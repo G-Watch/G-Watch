@@ -25,6 +25,18 @@ common_sources += glob.glob(f"{root_dir}/src/*.cpp", recursive=True)
 common_sources += glob.glob(f"{root_dir}/src/common/*.cpp", recursive=True)
 common_sources += glob.glob(f"{root_dir}/src/common/assemble/*.cpp", recursive=True)
 common_sources += glob.glob(f"{root_dir}/src/common/utils/*.cpp", recursive=True)
+if build_backend == "cuda":
+    common_sources += glob.glob(f"{root_dir}/src/common/cuda_impl/**/*.cpp", recursive=True)
+
+    # import cupti related files
+    import build_scripts._cuda
+    common_sources = [s for s in common_sources if f"{root_dir}/src/common/cuda_impl/cupti" not in s]
+    if build_scripts._cuda.cuda_version == "12.8":
+        common_sources += glob.glob(f"{root_dir}/src/common/cuda_impl/cupti/**/*.cpp", recursive=True)
+    elif build_scripts._cuda.cuda_version == "12.5":
+        common_sources += glob.glob(f"{root_dir}/src/common/cuda_impl/cupti_12_5/**/*.cpp", recursive=True)
+    else:
+        raise RuntimeError(f"unsupported CUDA version: {build_scripts._cuda.cuda_version}")
 
 
 global common_includes
@@ -37,8 +49,20 @@ common_includes += [ f'{root_dir}/third_parties/pybind11_json/include' ]
 common_includes += [ f'{root_dir}/third_parties/sqlite/build' ]
 if build_backend == "cuda":
     common_includes += [ '/usr/local/cuda/include' ]
-    common_includes += [ f'{root_dir}/src/common/cuda_impl/cupti/extensions/include/c_util' ]
-    common_includes += [ f'{root_dir}/src/common/cuda_impl/cupti/extensions/include/profilerhost_util' ]
+    common_includes += [ f'{root_dir}/src/common/cuda_impl' ]
+
+    # import cupti related paths
+    import build_scripts._cuda
+    if build_scripts._cuda.cuda_version == "12.8":
+        common_includes += [f'{root_dir}/src/common/cuda_impl/cupti']
+        common_includes += [ f'{root_dir}/src/common/cuda_impl/cupti/extensions/include/c_util' ]
+        common_includes += [ f'{root_dir}/src/common/cuda_impl/cupti/extensions/include/profilerhost_util' ]
+    elif build_scripts._cuda.cuda_version == "12.5":
+        common_includes += [f'{root_dir}/src/common/cuda_impl/cupti_12_5']
+        common_includes += [ f'{root_dir}/src/common/cuda_impl/cupti_12_5/extensions/include/c_util' ]
+        common_includes += [ f'{root_dir}/src/common/cuda_impl/cupti_12_5/extensions/include/profilerhost_util' ]
+    else:
+        raise RuntimeError(f"unsupported CUDA version: {build_scripts._cuda.cuda_version}")
 
 
 global python_includes

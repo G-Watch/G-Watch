@@ -138,7 +138,7 @@ class GWProfiler_CUDA final : public GWProfiler {
      *  \param  kernel  kernel to profile
      *  \return GW_SUCCESS for successfully begin
      */
-    gw_retval_t PcSampling_enable_profiling(const GWKernelDef* kernel_def);
+    gw_retval_t PcSampling_enable_profiling(GWKernelDef* kernel_def = nullptr);
 
 
     /*!

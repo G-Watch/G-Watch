@@ -13,11 +13,12 @@ def build_cgwatch(opt: _BuildOptions) -> Tuple[str,str,bool]:
     cgwatch_sources += glob.glob(f"{root_dir}/src/capsule/*.cpp", recursive=False)
     cgwatch_sources += glob.glob(f"{root_dir}/src/profiler/*.cpp", recursive=False)
     cgwatch_sources += glob.glob(f"{root_dir}/src/binding/*.cpp", recursive=False)
+    cgwatch_sources += glob.glob(f"{root_dir}/src/binding/runtime_control/**/*.cpp", recursive=True)
     cgwatch_sources += glob.glob(f"{root_dir}/src/binding/c/*.cpp", recursive=False)
     if build_backend == "cuda":
-        cgwatch_sources += glob.glob(f"{root_dir}/src/binding/c/cuda_impl/*.cpp", recursive=False)
+        cgwatch_sources += glob.glob(f"{root_dir}/src/capsule/cuda_impl/*.cpp", recursive=False)
+        cgwatch_sources += glob.glob(f"{root_dir}/src/binding/c/cuda_impl/**/*.cpp", recursive=True)
         cgwatch_sources += glob.glob(f"{root_dir}/src/profiler/cuda_impl/**/*.cpp", recursive=True)
-        cgwatch_sources += glob.glob(f"{root_dir}/src/common/cuda_impl/cupti/**/*.cpp", recursive=True)
 
     # includes
     cgwatch_includes = copy.deepcopy(common_includes)
@@ -63,11 +64,12 @@ def build_pygwatch(opt: _BuildOptions) -> Tuple[str,str,bool]:
     pygwatch_sources += glob.glob(f"{root_dir}/src/capsule/*.cpp", recursive=False)
     pygwatch_sources += glob.glob(f"{root_dir}/src/profiler/*.cpp", recursive=False)
     pygwatch_sources += glob.glob(f"{root_dir}/src/binding/*.cpp", recursive=False)
+    pygwatch_sources += glob.glob(f"{root_dir}/src/binding/runtime_control/**/*.cpp", recursive=True)
     pygwatch_sources += glob.glob(f"{root_dir}/src/binding/python/*.cpp", recursive=False)
     if build_backend == "cuda":
-        pygwatch_sources += glob.glob(f"{root_dir}/src/binding/python/cuda_impl/**/*.cpp", recursive=False)
+        pygwatch_sources += glob.glob(f"{root_dir}/src/capsule/cuda_impl/*.cpp", recursive=False)
+        pygwatch_sources += glob.glob(f"{root_dir}/src/binding/python/cuda_impl/**/*.cpp", recursive=True)
         pygwatch_sources += glob.glob(f"{root_dir}/src/profiler/cuda_impl/**/*.cpp", recursive=True)
-        pygwatch_sources += glob.glob(f"{root_dir}/src/common/cuda_impl/cupti/**/*.cpp", recursive=True)
 
     # includes
     pygwatch_includes = copy.deepcopy(common_includes)

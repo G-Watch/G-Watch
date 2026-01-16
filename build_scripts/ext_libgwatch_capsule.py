@@ -11,11 +11,12 @@ def build_libgwatch_capsule_hijack(opt: _BuildOptions) -> Tuple[str,str,bool]:
     # sources
     capsule_hijack_sources = copy.deepcopy(common_sources)
     capsule_hijack_sources += glob.glob(f"{root_dir}/src/capsule/*.cpp", recursive=False)
+    capsule_hijack_sources += glob.glob(f"{root_dir}/src/capsule/hijack/*.cpp", recursive=False)
     capsule_hijack_sources += glob.glob(f"{root_dir}/src/profiler/*.cpp", recursive=False)
     if build_backend == "cuda":
         capsule_hijack_sources += glob.glob(f"{root_dir}/src/capsule/cuda_impl/**/*.cpp", recursive=True)
+        capsule_hijack_sources += glob.glob(f"{root_dir}/src/capsule/hijack/cuda_impl/**/*.cpp", recursive=True)
         capsule_hijack_sources += glob.glob(f"{root_dir}/src/profiler/cuda_impl/**/*.cpp", recursive=True)
-        capsule_hijack_sources += glob.glob(f"{root_dir}/src/common/cuda_impl/cupti/**/*.cpp", recursive=True)
 
     # includes
     capsule_hijack_includes = copy.deepcopy(common_includes)

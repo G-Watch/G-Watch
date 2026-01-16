@@ -11,7 +11,7 @@
 #include "common/utils/exception.hpp"
 #include "capsule/event.hpp"
 #include "capsule/trace.hpp"
-#include "binding/internal_interface.hpp"
+#include "binding/runtime_control.hpp"
 
 // public header
 #include "gwatch/binary.hpp"

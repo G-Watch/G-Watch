@@ -9,10 +9,14 @@
 
 #include "common/common.hpp"
 #include "common/utils/exception.hpp"
+#include "common/assemble/kernel.hpp"
+#include "common/cuda_impl/assemble/kernel_cuda.hpp"
+#include "common/cuda_impl/assemble/kernel_def_sass.hpp"
 #include "profiler/cuda_impl/context.hpp"
 #include "profiler/cuda_impl/device.hpp"
 #include "profiler/cuda_impl/profiler.hpp"
 #include "profiler/cuda_impl/metric.hpp"
+#include "binding/runtime_control.hpp"
 
 
 void __gw_pybind_cuda_init_profile_context_interface(pybind11::module_ &m){
@@ -85,5 +89,85 @@ void __gw_pybind_cuda_init_profile_context_interface(pybind11::module_ &m){
             });
             return clock_map;
         }
+    );
+}
+
+
+void __gw_pybind_cuda_init_rt_control_interface(pybind11::module_ &m){
+    m.def(
+        "start_tracing_kernel_launch",
+        []()
+        {
+            gw_rt_control_start_tracing_kernel_launch();
+        }
+    );
+
+    m.def(
+        "stop_tracing_kernel_launch",
+        []()
+        {
+            std::vector<GWKernel*> list_kernel = {};
+            std::vector<GWKernelExt_CUDA*> list_kernel_ext = {};
+            GWKernelExt_CUDA *kernel_ext = nullptr;
+            
+            list_kernel = gw_rt_control_stop_tracing_kernel_launch();
+
+            for(auto& kernel : list_kernel){
+                kernel_ext = GWKernelExt_CUDA::get_ext_ptr(kernel);
+                list_kernel_ext.push_back(kernel_ext);
+            }
+            
+            return list_kernel_ext;
+        }
+    );
+
+    m.def(
+        "get_kernel_def_by_name",
+        [](std::string name) -> GWKernelDefExt_CUDA_SASS* {
+            GWKernelDef *kernel_def = nullptr;
+            GWKernelDefExt_CUDA_SASS *kernel_def_ext = nullptr;
+            gw_retval_t retval = GW_SUCCESS;
+
+            GW_IF_FAILED(
+                gw_rt_control_get_kernel_def(name, kernel_def),
+                retval,
+                {
+                    kernel_def_ext = nullptr;
+                    goto exit;
+                }
+            );
+            GW_CHECK_POINTER(kernel_def_ext = GWKernelDefExt_CUDA_SASS::get_ext_ptr(kernel_def));
+
+         exit:
+            return kernel_def_ext;
+        },
+        py::arg("name"),
+        py::return_value_policy::reference,
+        "get kernel definition by name"
+    );
+
+    m.def(
+        "get_map_kerneldef",
+        []() -> std::map<std::string, GWKernelDefExt_CUDA_SASS*> {
+            gw_retval_t retval = GW_SUCCESS;
+            std::map<std::string, GWKernelDef*> _map_name_kerneldef;
+            std::map<std::string, GWKernelDefExt_CUDA_SASS*> map_name_kerneldef = {};
+            GWKernelDefExt_CUDA_SASS *kernel_def_ext = nullptr;
+            GW_IF_FAILED(
+                gw_rt_control_get_map_kerneldef(_map_name_kerneldef),
+                retval,
+                goto exit;
+            );
+
+            for(auto& [name, kernel_def] : _map_name_kerneldef){
+                GW_CHECK_POINTER(kernel_def_ext = GWKernelDefExt_CUDA_SASS::get_ext_ptr(kernel_def));
+                map_name_kerneldef.insert({ name, kernel_def_ext });
+            }
+
+         exit:
+            return map_name_kerneldef;
+        },
+        py::return_value_policy::reference,
+        "get map of kernel definitions"
     );
 }

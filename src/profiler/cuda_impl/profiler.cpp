@@ -34,6 +34,10 @@
 #include "common/utils/exception.hpp"
 #include "common/utils/timer.hpp"
 #include "common/utils/hash.hpp"
+#include "common/binary.hpp"
+#include "common/cuda_impl/real_apis.hpp"
+#include "common/cuda_impl/assemble/kernel_def_sass.hpp"
+
 
 #include "profiler/cuda_impl/device.hpp"
 #include "profiler/cuda_impl/profiler.hpp"
@@ -272,10 +276,12 @@ GWProfiler_CUDA::GWProfiler_CUDA(GWProfileDevice* gw_device, std::vector<std::st
         #endif
         /* ==================== initialize of images for pm sampling ==================== */
     } else if (profiler_mode == GWProfiler_Mode_CUDA_PC_Sampling) {
+        /* ==================== initialize of images for pc sampling ==================== */
         #if GW_CUDA_VERSION_MAJOR >= 9
             memset(&(this->_pc_sampling_data_for_sampling), 0, sizeof(CUpti_PCSamplingData));
             memset(&(this->_pc_sampling_data_for_collecting), 0, sizeof(CUpti_PCSamplingData));
         #endif
+        /* ==================== initialize of images for pc sampling ==================== */
     } else {
         GW_ERROR_C_DETAIL("shouldn't be here")
     }
@@ -1258,7 +1264,7 @@ exit:
 #if GW_CUDA_VERSION_MAJOR >= 9
 
 
-gw_retval_t GWProfiler_CUDA::PcSampling_enable_profiling(const GWKernelDef* kernel_def){
+gw_retval_t GWProfiler_CUDA::PcSampling_enable_profiling(GWKernelDef* kernel_def){
     gw_retval_t retval = GW_SUCCESS;
     uint64_t i = 0, nb_stall_reasons = 0;
     int sdk_retval = 0;
@@ -1274,7 +1280,6 @@ gw_retval_t GWProfiler_CUDA::PcSampling_enable_profiling(const GWKernelDef* kern
     std::vector<CUpti_PCSamplingConfigurationInfo> pcSamplingConfigurationInfo;
     CUpti_PCSamplingConfigurationInfoParams pcSamplingConfigurationInfoParams = {};
 
-    GW_CHECK_POINTER(kernel_def);
     GW_CHECK_POINTER(gw_device_cuda = reinterpret_cast<GWProfileDevice_CUDA*>(this->_gw_device));
 
     pcSamplingEnableParams.size = CUpti_PCSamplingEnableParamsSize;
@@ -1352,8 +1357,16 @@ gw_retval_t GWProfiler_CUDA::PcSampling_enable_profiling(const GWKernelDef* kern
     if(unlikely(this->_pc_sampling_data_for_sampling.pPcData != nullptr)){
         free(this->_pc_sampling_data_for_sampling.pPcData);
     }
+
     this->_pc_sampling_data_for_sampling.size = sizeof(CUpti_PCSamplingData);
-    this->_pc_sampling_data_for_sampling.collectNumPcs = kernel_def->list_instructions.size();
+
+    if(kernel_def != nullptr){
+        // set number of PCs to collect
+        GW_ASSERT(kernel_def->list_instructions.size() > 0);
+        this->_pc_sampling_data_for_sampling.collectNumPcs = kernel_def->list_instructions.size();       
+    } else {
+        this->_pc_sampling_data_for_sampling.collectNumPcs = 1024;
+    }
     this->_pc_sampling_data_for_sampling.pPcData = (CUpti_PCSamplingPCData *)calloc(
         this->_pc_sampling_data_for_sampling.collectNumPcs, sizeof(CUpti_PCSamplingPCData)
     );
@@ -1496,7 +1509,9 @@ exit:
 }
 
 
-gw_retval_t GWProfiler_CUDA::PcSampling_get_metrics(std::map<uint64_t, std::map<uint32_t, uint64_t>>& map_metrics){
+gw_retval_t GWProfiler_CUDA::PcSampling_get_metrics(
+    std::map<uint64_t, std::map<uint32_t, uint64_t>>& map_metrics
+){
     gw_retval_t retval = GW_SUCCESS;
     int sdk_retval = 0;
     uint64_t i=0, j=0, nb_stall_reasons=0, pc_offset = 0;
@@ -1542,6 +1557,36 @@ gw_retval_t GWProfiler_CUDA::PcSampling_get_metrics(std::map<uint64_t, std::map<
             goto exit;
         }
     );
+
+    // check results
+    // REF(zhuobin): https://docs.nvidia.com/cupti/api/structCUpti__PCSamplingData.html
+    if(unlikely(this->_pc_sampling_data_for_collecting.droppedSamples > 0)){
+        GW_WARN_C(
+            "pc sampling exists dropped samples: total(%lu), dropped(%lu)",
+            this->_pc_sampling_data_for_collecting.totalSamples,
+            this->_pc_sampling_data_for_collecting.droppedSamples
+        );
+    }
+    if(unlikely(this->_pc_sampling_data_for_collecting.nonUsrKernelsTotalSamples > 0)){
+        GW_WARN_C(
+            "pc sampling exists non-usr kernels, where there's no PC would be recorded: total(%lu), non_usr(%lu)",
+            this->_pc_sampling_data_for_collecting.totalSamples,
+            this->_pc_sampling_data_for_collecting.nonUsrKernelsTotalSamples
+        );
+    }
+    if(unlikely(this->_pc_sampling_data_for_collecting.hardwareBufferFull > 0)){
+        GW_WARN_C(
+            "pc sampling is done but hardware buffer is full, no PC records would be collecteded: hardwareBufferFull(%lu)",
+            this->_pc_sampling_data_for_collecting.hardwareBufferFull
+        );
+    }
+    if(unlikely(this->_pc_sampling_data_for_collecting.totalNumPcs == 0)){
+        GW_WARN_C(
+            "pc sampling is done but no PC have been recorded: totalSamples(%lu), totalNumPcs(%lu)",
+            this->_pc_sampling_data_for_collecting.totalSamples,
+            this->_pc_sampling_data_for_collecting.totalNumPcs
+        );
+    }
 
     // organize pc sampling data
     map_metrics.clear();

@@ -11,7 +11,7 @@
 #include "common/utils/exception.hpp"
 #include "capsule/event.hpp"
 #include "capsule/trace.hpp"
-#include "binding/internal_interface.hpp"
+#include "binding/runtime_control.hpp"
 
 
 #ifdef GW_BACKEND_CUDA
@@ -21,11 +21,11 @@
 
 PYBIND11_MODULE(libpygwatch, m) {
     /* ==================== Trace Event Management ==================== */
-    m.def("start_trace", &GW_INTERNAL_start_app_trace);
-    m.def("stop_trace", &GW_INTERNAL_stop_app_trace);
-    m.def("push_event", &GW_INTERNAL_push_app_event);
-    m.def("push_parent_event", &GW_INTERNAL_push_app_parent_event);
-    m.def("pop_parent_event", &GW_INTERNAL_pop_app_parent_event);
+    m.def("start_trace", &gw_rt_control_start_app_trace);
+    m.def("stop_trace", &gw_rt_control_stop_app_trace);
+    m.def("push_event", &gw_rt_control_push_app_event);
+    m.def("push_parent_event", &gw_rt_control_push_app_parent_event);
+    m.def("pop_parent_event", &gw_rt_control_pop_app_parent_event);
 
     pybind11::class_<GWEvent>(m, "GWEvent")
         .def(pybind11::init<std::string>())
@@ -46,10 +46,10 @@ PYBIND11_MODULE(libpygwatch, m) {
 
 
     /* ==================== Trace Task Management ==================== */
-    m.def("create_trace_task", &GW_INTERNAL_create_trace_task);
-    m.def("destory_trace_task", &GW_INTERNAL_destory_trace_task);
-    m.def("register_trace_task", &GW_INTERNAL_register_trace_task);
-    m.def("unregister_trace_task", &GW_INTERNAL_unregister_trace_task);
+    m.def("create_trace_task", &gw_rt_control_create_trace_task);
+    m.def("destory_trace_task", &gw_rt_control_destory_trace_task);
+    m.def("register_trace_task", &gw_rt_control_register_trace_task);
+    m.def("unregister_trace_task", &gw_rt_control_unregister_trace_task);
 
     pybind11::class_<GWTraceTask>(m, "GWTraceTask")
         .def(pybind11::init<>())
@@ -77,9 +77,11 @@ PYBIND11_MODULE(libpygwatch, m) {
         __gw_pybind_cuda_init_fatbin_interface(m);
         __gw_pybind_cuda_init_ptx_interface(m);
         __gw_pybind_cuda_init_kernel_def_sass_interface(m);
+        __gw_pybind_cuda_init_kernel_cuda_interface(m);
         __gw_pybind_cuda_init_profile_context_interface(m);
         __gw_pybind_cuda_init_profile_device_interface(m);
         __gw_pybind_cuda_init_profile_profiler_interface(m);
+        __gw_pybind_cuda_init_rt_control_interface(m);
     #endif // GW_BACKEND_CUDA
     /* ==================== CUDA ==================== */
 }

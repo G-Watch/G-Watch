@@ -8,6 +8,7 @@
 #include <cuda.h>
 #include <nvml.h>
 #include <cuda_runtime_api.h>
+#include <cupti.h>
 #include <cupti_target.h>
 #include <cupti_profiler_target.h>
 
@@ -73,12 +74,87 @@ GWProfileContext_CUDA::GWProfileContext_CUDA(bool lazy_init_device) : GWProfileC
             )
         }
     }
+    
+    // subscribe to CUPTI callback
+    GW_IF_CUPTI_FAILED(
+        cuptiSubscribe(
+            &this->_cupti_subscriber,
+            (CUpti_CallbackFunc)GWProfileContext_CUDA::__cupti_callback_handler,
+            this
+        ),
+        sdk_retval,
+        {
+            if(CUPTI_ERROR_MULTIPLE_SUBSCRIBERS_NOT_SUPPORTED == (CUptiResult)sdk_retval){
+                GW_ERROR_C(
+                    "failed to init profile context due to multiple profiling processes on current machine, "
+                    "please kill other profiling processes first"
+                );
+            } else {
+                GW_ERROR_C("failed to subscribe to CUPTI callback: sdk_retval(%d)", sdk_retval);
+            }
+        }
+    );
+
+    // NOTE(zhuobin): subscribe anything here
+    // GW_IF_CUPTI_FAILED(
+    //     cuptiEnableCallback(
+    //         /* enable */ 1,
+    //         /* subscriber */ this->_cupti_subscriber,
+    //         /* domain */ CUPTI_CB_DOMAIN_RESOURCE,
+    //         /* cbid */ CUPTI_CBID_RESOURCE_MODULE_LOADED
+    //     ),
+    //     sdk_retval,
+    //     {
+    //         GW_ERROR_C(
+    //             "failed to enable CUPTI to subscribe CUDA module loaded: sdk_retval(%d)",
+    //             sdk_retval
+    //         );
+    //     }
+    // );
+    // GW_IF_CUPTI_FAILED(
+    //     cuptiEnableCallback(
+    //         /* enable */ 1,
+    //         /* subscriber */ this->_cupti_subscriber,
+    //         /* domain */ CUPTI_CB_DOMAIN_RESOURCE,
+    //         /* cbid */ CUPTI_CBID_RESOURCE_MODULE_UNLOAD_STARTING
+    //     ),
+    //     sdk_retval,
+    //     {
+    //         GW_ERROR_C(
+    //             "failed to enable CUPTI to subscribe CUDA module unload starting: sdk_retval(%d)",
+    //             sdk_retval
+    //         );
+    //     }
+    // );
 
     GW_DEBUG("created gwatch instance");
 }
 
 
 GWProfileContext_CUDA::~GWProfileContext_CUDA(){}
+
+
+void CUPTIAPI GWProfileContext_CUDA::__cupti_callback_handler(
+    void *userdata, CUpti_CallbackDomain domain, CUpti_CallbackId cbid, const void *cbdata
+){
+    const CUpti_ResourceData *resourceData = (const CUpti_ResourceData *)cbdata;
+    CUcontext cu_context = (CUcontext)0;
+
+    // NOTE(zhuobin): process anything here
+    // if (domain != CUPTI_CB_DOMAIN_RESOURCE) {
+    //     goto exit;
+    // }
+    // if (cbid == CUPTI_CBID_RESOURCE_MODULE_LOADED) {
+    //     cu_context = (CUcontext)resourceData->context;
+    //     GW_DEBUG("CUPTI subscription callback: CUDA module loaded: CUcontext(%p)", cu_context);
+    // } else if (cbid == CUPTI_CBID_RESOURCE_MODULE_UNLOAD_STARTING) {
+    //     cu_context = (CUcontext)resourceData->context;
+    //     GW_DEBUG("CUPTI subscription callback: CUDA module unload starting: CUcontext(%p)", cu_context);
+    // }
+
+ exit:
+    ;
+}
 
 
 gw_retval_t GWProfileContext_CUDA::__init_gw_device(int device_id){

@@ -17,8 +17,8 @@
 #include "common/cuda_impl/assemble/kernel_def_sass.hpp"
 #include "capsule/capsule.hpp"
 #include "capsule/event.hpp"
-#include "capsule/cuda_impl/hijack/runtime.hpp"
-#include "capsule/cuda_impl/hijack/real_apis.hpp"
+#include "capsule/hijack/cuda_impl/runtime.hpp"
+#include "common/cuda_impl/real_apis.hpp"
 #include "capsule/cuda_impl/trace.hpp"
 #include "profiler/cuda_impl/profiler.hpp"
 

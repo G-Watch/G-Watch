@@ -30,6 +30,13 @@ void __gw_pybind_cuda_init_kernel_def_sass_interface(pybind11::module_ &m);
 
 
 /*!
+ *  \brief  initialize kernel cuda interface
+ *  \param  m   python module
+ */
+void __gw_pybind_cuda_init_kernel_cuda_interface(pybind11::module_ &m);
+
+
+/*!
  *  \brief  initialize fatbin utilities
  *  \param  m   python module
  */
@@ -48,6 +55,13 @@ void __gw_pybind_cuda_init_ptx_interface(pybind11::module_ &m);
  *  \param  m   python module
  */
 void __gw_pybind_cuda_init_profile_context_interface(pybind11::module_ &m);
+
+
+/*!
+ *  \brief  initialize trace interface
+ *  \param  m   python module
+ */
+void __gw_pybind_cuda_init_rt_control_interface(pybind11::module_ &m);
 
 
 /*!

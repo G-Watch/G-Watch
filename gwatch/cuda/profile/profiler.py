@@ -1,6 +1,8 @@
 import gwatch
 import gwatch.libpygwatch as pygwatch
+import gwatch.cuda.assemble as gw_assemble
 import json
+import inspect
 from typing import Dict, List, Any
 
 # Constants for Range Profiling
@@ -22,6 +24,20 @@ class RangeProfiler:
         cupti_profile_num_nesting_levels: int = 1,
         cupti_profile_target_nesting_levels: int = 1
     ):
+        """
+        Range profiler context manager.
+
+        Args:
+            profiler: The profiler object.
+            range_name: The name of the range to profile.
+            max_launches_per_pass: The maximum number of launches per pass.
+            max_ranges_per_pass: The maximum number of ranges per pass.
+            cupti_profile_range_mode: The mode of the range profile.
+            cupti_profile_reply_mode: The mode of the range profile replay.
+            cupti_profile_min_nesting_level: The minimum nesting level of the range profile.
+            cupti_profile_num_nesting_levels: The number of nesting levels of the range profile.s
+        """
+
         self.profiler = profiler
         self.range_name = range_name
         self.max_launches_per_pass = max_launches_per_pass
@@ -74,6 +90,16 @@ class PmSampler:
         sampling_interval: int = 0, # 0 means auto
         max_samples: int = 100000
     ):
+        """
+        PM sampling context manager.
+
+        Args:
+            profiler: The profiler object.
+            hw_buf_size: The hardware buffer size.
+            sampling_interval: The sampling interval.
+            max_samples: The maximum number of samples.
+        """
+
         self.profiler = profiler
         self.hw_buf_size = hw_buf_size
         self.sampling_interval = sampling_interval
@@ -82,120 +108,112 @@ class PmSampler:
 
 
     def __enter__(self):
-        self.profiler.PmSampling_set_config(
-            self.hw_buf_size,
-            self.sampling_interval,
-            self.max_samples
-        )
-        self.profiler.PmSampling_enable_profiling()
-        self.profiler.PmSampling_start_profiling()
+        if gwatch._is_capsule_hijacked():
+            self.profiler.PmSampling_set_config(
+                self.hw_buf_size,
+                self.sampling_interval,
+                self.max_samples
+            )
+            self.profiler.PmSampling_enable_profiling()
+            self.profiler.PmSampling_start_profiling()
+        else:
+            pass
+
         return self
 
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.profiler.PmSampling_stop_profiling()
-        self.profiler.PmSampling_disable_profiling()
-        self.metrics = self.profiler.PmSampling_get_metrics()
+        if gwatch._is_capsule_hijacked():
+            self.profiler.PmSampling_stop_profiling()
+            self.profiler.PmSampling_disable_profiling()
+            self.metrics = self.profiler.PmSampling_get_metrics()
+        else:
+            pass
 
 
 class PcSampler:
-    def __init__(self, profiler: 'Profiler', kernel_def: Any):
+    def __init__(self, profiler: 'Profiler', kernel_def: gw_assemble.KernelDefSASS = None):
+        """
+        PC sampling context manager.
+
+        Args:
+            profiler: The profiler object.
+            kernel_def: The kernel definition to profile (optional)
+        """
+
         self.profiler = profiler
         self.kernel_def = kernel_def
         self.metrics = None
 
 
     def __enter__(self):
-        self.profiler.PcSampling_enable_profiling(self.kernel_def)
-        self.profiler.PcSampling_start_profiling()
+        if gwatch._is_capsule_hijacked():
+            self.profiler.PcSampling_enable_profiling(self.kernel_def)
+            self.profiler.PcSampling_start_profiling()
+        else:
+            pass
+
         return self
 
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.profiler.PcSampling_stop_profiling()
-        self.profiler.PcSampling_disable_profiling()
-        self.metrics = self.profiler.PcSampling_get_metrics()
+        if gwatch._is_capsule_hijacked():
+            self.profiler.PcSampling_stop_profiling()
+            self.metrics = self.profiler.PcSampling_get_metrics()
+            self.profiler.PcSampling_disable_profiling()
+        else:
+            pass
 
 
 class Profiler:
-    def __init__(self, gw_instance: pygwatch.Profiler):
+    def __init__(self, gw_instance: pygwatch.Profiler, mode: str):
         self._gw_instance = gw_instance
+        self.mode = mode
+
 
     # ================== Context manager based APIs ==================
-    def RangeProfile(
-        self,
-        range_name: str = "default profile range",
-        max_launches_per_pass: int = 512,
-        max_ranges_per_pass: int = 64,
-        cupti_profile_range_mode: int = GW_CUPTI_RANGE_MODE_USER,
-        cupti_profile_reply_mode: int = GW_CUPTI_REPLAY_MODE_USER,
-        cupti_profile_min_nesting_level: int = 1,
-        cupti_profile_num_nesting_levels: int = 1,
-        cupti_profile_target_nesting_levels: int = 1
-    ) -> RangeProfiler:
+    def run(self, *args, **kwargs):
         """
-        Create a range profiler context manager with the given name.
-
-        Args:
-            range_name: The name of the range to profile.
-            max_launches_per_pass: The maximum number of launches per pass.
-            max_ranges_per_pass: The maximum number of ranges per pass.
-            cupti_profile_range_mode: The mode of the range profiling.
-            cupti_profile_reply_mode: The mode of the range profiling reply.
-            cupti_profile_min_nesting_level: The minimum nesting level.
-            cupti_profile_num_nesting_levels: The number of nesting levels.
-            cupti_profile_target_nesting_levels: The target nesting levels.
+        Create a mode-specific context manager
         """
 
-        return RangeProfiler(
-            self,
-            range_name=range_name,
-            max_launches_per_pass=max_launches_per_pass,
-            max_ranges_per_pass=max_ranges_per_pass,
-            cupti_profile_range_mode=cupti_profile_range_mode,
-            cupti_profile_reply_mode=cupti_profile_reply_mode,
-            cupti_profile_min_nesting_level=cupti_profile_min_nesting_level,
-            cupti_profile_num_nesting_levels=cupti_profile_num_nesting_levels,
-            cupti_profile_target_nesting_levels=cupti_profile_target_nesting_levels
-        )
+        mode_to_cls = {
+            "range": RangeProfiler,
+            "pm": PmSampler,
+            "pc": PcSampler,
+        }
 
+        target_cls = mode_to_cls.get(self.mode)
+        assert target_cls is not None, f"unsupported profiler mode {self.mode!r}"
 
-    def PmSampling(
-        self,
-        hw_buf_size: int = 1024 * 1024,
-        sampling_interval: int = 0,
-        max_samples: int = 100000
-    ) -> PmSampler:
-        """
-        Create a Performance Monitoring (PM) sampling context manager.
-        
-        Args:
-            hw_buf_size: The size of the hardware buffer.
-            sampling_interval: The sampling interval.
-            max_samples: The maximum number of samples.
-        Returns:
-            A PM sampling context manager object.
-        """
+        # validate kwargs for the selected mode (and also catch invalid *args).
+        sig = inspect.signature(target_cls.__init__)
+        params = list(sig.parameters.values())
+        has_varkw = any(p.kind == inspect.Parameter.VAR_KEYWORD for p in params)
+        allowed_kw = {
+            p.name
+            for p in params[2:]  # skip (self, profiler)
+            if p.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+        }
 
-        return PmSampler(
-            self,
-            hw_buf_size=hw_buf_size,
-            sampling_interval=sampling_interval,
-            max_samples=max_samples
-        )
+        if not has_varkw:
+            unknown = set(kwargs.keys()) - allowed_kw
+            if unknown:
+                unknown_s = ", ".join(sorted(unknown))
+                allowed_s = ", ".join(sorted(allowed_kw))
+                raise TypeError(
+                    f"Profiler.run(mode={self.mode!r}) got unexpected keyword argument(s): {unknown_s}. "
+                    f"Allowed for mode {self.mode!r}: {allowed_s}"
+                )
 
+        try:
+            sig.bind(object(), self, *args, **kwargs)
+        except TypeError as e:
+            raise TypeError(
+                f"Profiler.run(mode={self.mode!r}) invalid arguments for {target_cls.__name__}: {e}"
+            ) from None
 
-    def PcSampling(self, kernel_def: Any) -> PcSampler:
-        """
-        Create a Program Counter (PC) sampling context manager.
-
-        Args:
-            kernel_def: The kernel definition to profile.
-        Returns:
-            A Program Counter (PC) sampling context manager object.
-        """
-
-        return PcSampler(self, kernel_def)
+        return target_cls(self, *args, **kwargs)
     # ================== Context manager based APIs ==================
 
 
@@ -333,14 +351,11 @@ class Profiler:
         return json.loads(json_str)
 
     # PC Sampling APIs
-    def PcSampling_enable_profiling(self, kernel_def: Any):
-        # Assumes kernel_def has a underlying _gw_instance or passed as is if binding supports it
-        # Since binding is missing in C++, this will fail if called.
-        # But if we assume binding accepts the python object which wraps the C++ object:
-        if hasattr(kernel_def, '_gw_instance'):
-             self._gw_instance.PcSampling_enable_profiling(kernel_def._gw_instance)
+    def PcSampling_enable_profiling(self, kernel_def: gw_assemble.KernelDefSASS = None):
+        if kernel_def is not None:
+            self._gw_instance.PcSampling_enable_profiling(kernel_def._gw_instance)
         else:
-             self._gw_instance.PcSampling_enable_profiling(kernel_def)
+            self._gw_instance.PcSampling_enable_profiling(None)
 
     def PcSampling_disable_profiling(self):
         self._gw_instance.PcSampling_disable_profiling()

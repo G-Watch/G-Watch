@@ -1,5 +1,6 @@
 import gwatch.libpygwatch as pygwatch
-from typing import List, Dict
+from gwatch.cuda.assemble import KernelCUDA, KernelDefSASS
+from typing import List, Dict, Optional
 from .profiler import Profiler
 from .device import ProfileDevice
 
@@ -13,7 +14,7 @@ class ProfileContext:
         self,
         device_id: int,
         metric_names: List[str],
-        profile_mode: str = "range"
+        mode: str = "range"
     ) -> Profiler:
         """
         Create a profiler with the given mode.
@@ -21,13 +22,15 @@ class ProfileContext:
         Args:
             device_id: The ID of the device to profile.
             metric_names: The names of the metrics to profile.
-            profile_mode: The mode of the profiler, options: "pm", "pc", "range".
+            mode: The mode of the profiler, options: "pm", "pc", "range".
         Returns:
             A profiler object.
         """
+        if mode not in ["pm", "pc", "range"]:
+            raise ValueError(f"Invalid mode: {mode}, please use either 'pm', 'pc', or 'range'")
 
-        gw_profiler = self._gw_instance.create_profiler(device_id, metric_names, profile_mode)
-        return Profiler(gw_instance=gw_profiler)
+        gw_profiler = self._gw_instance.create_profiler(device_id, metric_names, mode)
+        return Profiler(gw_instance=gw_profiler, mode=mode)
 
 
     def destroy_profiler(
@@ -47,7 +50,7 @@ class ProfileContext:
     def get_devices(self) -> Dict[int, ProfileDevice]:
         """
         Get the list of available devices for profiling.
-        
+
         Returns:
             A dictionary of device IDs and their corresponding profile devices.
         """
@@ -67,6 +70,48 @@ class ProfileContext:
         """
 
         return self._gw_instance.get_clock_freq(device_id)
+
+
+    # ======================== Runtime Control ========================
+    def start_tracing_kernel_launch(self):
+        """
+        Start tracing kernel launch.
+        """
+
+        pygwatch.start_tracing_kernel_launch()
+
+
+    def stop_tracing_kernel_launch(self) -> List[KernelCUDA]:
+        """
+        Stop tracing kernel launch.
+        """
+
+        raw_list = pygwatch.stop_tracing_kernel_launch()
+        return [KernelCUDA(k) for k in raw_list]
+
+
+    def get_kernel_def_by_name(self, name: str) -> Optional[KernelDefSASS]:
+        """
+        Get the kernel definition by name.
+        """
+
+        raw_kernel_def = pygwatch.get_kernel_def_by_name(name)
+
+        if raw_kernel_def is None:
+            return None
+
+        return KernelDefSASS(raw_kernel_def)
+
+
+    def get_map_kerneldef(self) -> Dict[str, KernelDefSASS]:
+        """
+        Get map of kernel definitions.
+        """
+
+        raw_map = pygwatch.get_map_kerneldef()
+        return {k: KernelDefSASS(v) for k, v in raw_map.items()}
+
+    # ======================== Runtime Control ========================
 
 
 __all__ = [

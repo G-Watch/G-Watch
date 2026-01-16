@@ -9,6 +9,7 @@
 
 #include "common/common.hpp"
 #include "common/utils/exception.hpp"
+#include "common/cuda_impl/assemble/kernel_def_sass.hpp"
 #include "profiler/cuda_impl/context.hpp"
 #include "profiler/cuda_impl/device.hpp"
 #include "profiler/cuda_impl/profiler.hpp"
@@ -244,6 +245,101 @@ void __gw_pybind_cuda_init_profile_profiler_interface(pybind11::module_ &m){
                 throw GWException("failed to retrieve PM sampling result: retval(%d)", sdk_retval);
             });
             return nlohmann::json(_result).dump();
+        }
+    );
+
+
+    /* =============== PC Sampling APIs =============== */
+    _class.def(
+        "PcSampling_enable_profiling",
+        [](GWProfiler_CUDA &self, GWKernelDefExt_CUDA_SASS* kernel_def_ext_sass){
+            gw_retval_t retval = GW_SUCCESS;
+            GWKernelDef* kernel_def = nullptr;
+            GW_CHECK_POINTER(kernel_def = GWKernelDefExt_CUDA_SASS::get_base_ptr(kernel_def_ext_sass));
+            GW_IF_FAILED(
+                self.PcSampling_enable_profiling(kernel_def),
+                retval,
+                {
+                    throw GWException("failed to enable PC sampling profiling: retval(%d)", retval);
+                }
+            );
+        }
+    );
+
+    _class.def(
+        "PcSampling_disable_profiling",
+        [](GWProfiler_CUDA &self){
+            gw_retval_t retval = GW_SUCCESS;
+            GW_IF_FAILED(
+                self.PcSampling_disable_profiling(),
+                retval,
+                {
+                    throw GWException("failed to disable PC sampling profiling: retval(%d)", retval);
+                }
+            );
+        }
+    );
+
+    _class.def(
+        "PcSampling_start_profiling",
+        [](GWProfiler_CUDA &self){
+            gw_retval_t retval = GW_SUCCESS;
+            GW_IF_FAILED(
+                self.PcSampling_start_profiling(),
+                retval,
+                {
+                    throw GWException("failed to start PC sampling profiling: retval(%d)", retval);
+                }
+            );
+        }
+    );
+
+    _class.def(
+        "PcSampling_stop_profiling",
+        [](GWProfiler_CUDA &self){
+            gw_retval_t retval = GW_SUCCESS;
+            GW_IF_FAILED(self.PcSampling_stop_profiling(), retval, {
+                throw GWException("failed to stop PC sampling profiling: retval(%d)", retval);
+            });
+        }
+    );
+
+    _class.def(
+        "PcSampling_get_metrics",
+        [](GWProfiler_CUDA &self) -> std::map<uint64_t, std::map<std::string, uint64_t>> {
+            gw_retval_t retval = GW_SUCCESS;
+            std::map<uint64_t, std::map<std::string, uint64_t>> retval_map_metrics = {};
+            std::map<uint64_t, std::map<uint32_t, uint64_t>> map_metrics = {};
+            std::map<uint32_t, std::string> map_stall_reasons = {};
+            
+            // get stall reasons
+            map_stall_reasons = self.PcSampling_get_stall_reason();
+
+            // get metrics
+            GW_IF_FAILED(
+                self.PcSampling_get_metrics(map_metrics),
+                retval,
+                {
+                    throw GWException("failed to get PC sampling metrics: retval(%d)", retval);
+                }
+            );
+
+            // combine metrics and stall reasons
+            for (const auto &[pc, map_stall_reason_count] : map_metrics) {
+                retval_map_metrics[pc] = {};
+                for (const auto &[stall_reason_index, stall_reason_count] : map_stall_reason_count) {
+                    retval_map_metrics[pc][map_stall_reasons[stall_reason_index]] = stall_reason_count;
+                }
+            }
+            
+            return retval_map_metrics;
+        }
+    );
+
+    _class.def(
+        "PcSampling_get_stall_reason",
+        [](GWProfiler_CUDA &self) -> std::map<uint32_t, std::string> {
+            return self.PcSampling_get_stall_reason();
         }
     );
 

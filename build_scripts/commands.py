@@ -125,9 +125,6 @@ class BuildCommand(_build):
         if os.path.exists(sqlite_lib):
             dst = os.path.join(libs_dir, os.path.basename(sqlite_lib))
             shutil.copy(sqlite_lib, dst)
-            _, stderr, ok = execute_command(cmd=["patchelf", "--set-rpath", "$ORIGIN", dst], title=f"patching rpath for {os.path.basename(dst)}")
-            if not ok:
-                print(f"WARNING: Failed to patch RPATH for {dst}: {stderr}")
 
         # add dark lib
         if "dark" in self.targets:
@@ -135,9 +132,6 @@ class BuildCommand(_build):
             if os.path.exists(dark_lib):
                 dst = os.path.join(libs_dir, os.path.basename(dark_lib))
                 shutil.copy(dark_lib, dst)
-                _, stderr, ok = execute_command(cmd=["patchelf", "--set-rpath", "$ORIGIN", dst], title=f"patching rpath for {os.path.basename(dst)}")
-                if not ok:
-                    print(f"WARNING: Failed to patch RPATH for {dst}: {stderr}")
 
         for result in self.build_results:
             if not result or not isinstance(result, Tuple) or len(result) != 3:
@@ -152,18 +146,12 @@ class BuildCommand(_build):
                 # pybind libs go to package root
                 dst = os.path.join(gwatch_pkg_dir, filename)
                 shutil.copyfile(src_path, dst)
-                _, stderr, ok = execute_command(cmd=["patchelf", "--set-rpath", "$ORIGIN", dst], title=f"patching rpath for {filename}")
-                if not ok:
-                    print(f"WARNING: Failed to patch RPATH for {dst}: {stderr}")
             elif type_tag == 'lib':
                 # shared libs go to gwatch/libs
                 dst = os.path.join(libs_dir, filename)
                 shutil.copyfile(src_path, dst)
                 # strip shared libs
                 execute_command(cmd=["strip", "--strip-unneeded", dst], title=f"stripping {filename}")
-                _, stderr, ok = execute_command(cmd=["patchelf", "--set-rpath", "$ORIGIN", dst], title=f"patching rpath for {filename}")
-                if not ok:
-                    print(f"WARNING: Failed to patch RPATH for {dst}: {stderr}")
             elif type_tag == 'exe':
                 # executables go to gwatch/bin
                 dst = os.path.join(bin_dir, filename)
